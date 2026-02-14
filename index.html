@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>100 GATES: EQUAL FATE</title>
+    <title>100 GATES: NOOB EDITION</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg: #050505; --accent: #bc0000; --panel: #1a1a1a; }
@@ -14,7 +14,7 @@
         .player { width: 16px; height: 16px; border-radius: 50%; position: absolute; border: 2px solid #000; transition: 0.5s; z-index: 10; }
         .p0 { background: #ff3333; } .p1 { background: #33aaff; } .p2 { background: #33ff77; } .p3 { background: #f0ff33; }
 
-        /* Full Screen Emoji Possession */
+        /* Possession Flash */
         #emoji-flash { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9000; pointer-events: none; }
         #flash-content { font-size: 120px; }
         #flash-user { color: var(--accent); font-size: 20px; }
@@ -54,16 +54,11 @@
 
     <div id="chat-window" style="position:fixed; bottom:0; right:0; width:100%; max-width:320px; background:#111; z-index:2000;">
         <div style="display:grid; grid-template-columns:repeat(5,1fr); padding:10px;">
-            <button class="emoji-btn" onclick="sendEmoji('👻')" style="font-size:25px;">👻</button>
-            <button class="emoji-btn" onclick="sendEmoji('💀')" style="font-size:25px;">💀</button>
-            <button class="emoji-btn" onclick="sendEmoji('😱')" style="font-size:25px;">😱</button>
-            <button class="emoji-btn" onclick="sendEmoji('🔥')" style="font-size:25px;">🔥</button>
-            <button class="emoji-btn" onclick="sendEmoji('😈')" style="font-size:25px;">😈</button>
-            <button class="emoji-btn" onclick="sendEmoji('😂')" style="font-size:25px;">😂</button>
-            <button class="emoji-btn" onclick="sendEmoji('🙏')" style="font-size:25px;">🙏</button>
-            <button class="emoji-btn" onclick="sendEmoji('🤫')" style="font-size:25px;">🤫</button>
-            <button class="emoji-btn" onclick="sendEmoji('👎')" style="font-size:25px;">👎</button>
-            <button class="emoji-btn" onclick="sendEmoji('🤡')" style="font-size:25px;">🤡</button>
+            <button onclick="sendEmoji('👻')">👻</button><button onclick="sendEmoji('💀')">💀</button>
+            <button onclick="sendEmoji('😱')">😱</button><button onclick="sendEmoji('🔥')">🔥</button>
+            <button onclick="sendEmoji('😈')">😈</button><button onclick="sendEmoji('😂')">😂</button>
+            <button onclick="sendEmoji('🙏')">🙏</button><button onclick="sendEmoji('🤫')">🤫</button>
+            <button onclick="sendEmoji('👎')">👎</button><button onclick="sendEmoji('🤡')">🤡</button>
         </div>
     </div>
 
@@ -75,8 +70,14 @@
 <script>
     let peer, hostConn, guestConns = [];
     let myRole = -1, isHost = false, turn = 0, positions = [1,1,1,1], maxPlayers = 2;
-    let personalTurnCounter = 0; // Ensures event every 2 turns for THIS player
-    const sounds = { dice: new Audio('dice.mp3'), jump: new Audio('jump.mp3') };
+    let personalTurnCounter = 0;
+    
+    // SOUND ENGINE
+    const sounds = { 
+        dice: new Audio('dice.mp3'), 
+        jump: new Audio('jump.mp3'),
+        noob: new Audio('noob.mp3') // Added Noob sound
+    };
 
     function playSound(n) { const s = sounds[n].cloneNode(); s.play().catch(()=>{}); }
 
@@ -121,7 +122,6 @@
             return;
         }
 
-        // FORCE EVENT EVERY 2 TURNS
         if (personalTurnCounter >= 2) {
             personalTurnCounter = 0;
             triggerResult(roll);
@@ -133,7 +133,11 @@
     function triggerResult(roll) {
         let ev = eventList[Math.floor(Math.random() * eventList.length)];
         positions[myRole] += ev.m; if (positions[myRole] < 1) positions[myRole] = 1;
+        
+        // Play Noob sound for funny events, Jump for horror
         if(ev.scare) playSound('jump');
+        else if(ev.type === 'f') playSound('noob'); 
+
         document.getElementById('res-img').src = ev.type + (Math.floor(Math.random()*5)+1) + ".jpg";
         document.getElementById('res-text').innerText = ev.t;
         document.getElementById('overlay').setAttribute('data-msg', `P${myRole+1} hit ${ev.t}`);
@@ -145,12 +149,15 @@
         screen.style.display = "flex";
         if (winIdx === myRole) {
             document.getElementById('j-title').innerText = "CONGRATULATIONS!";
+            document.getElementById('j-title').style.color = "gold";
             document.getElementById('j-img').src = "f1.jpg";
             document.getElementById('j-msg').innerText = "You have escaped the 100 Gates!";
         } else {
+            playSound('noob'); // Play Noob sound for losers
             document.getElementById('j-title').innerText = "YOU LOST!";
-            document.getElementById('j-img').src = "f2.jpg";
-            document.getElementById('j-msg').innerText = "The winner left you behind. Better luck next life!";
+            document.getElementById('j-title').style.color = "red";
+            document.getElementById('j-img').src = "f" + (Math.floor(Math.random()*4)+2) + ".jpg";
+            document.getElementById('j-msg').innerText = "NOOB ALERT! Stay in the void forever.";
         }
         if(isHost) document.getElementById('restart-btn').style.display = "block";
         else document.getElementById('wait-host').style.display = "block";
@@ -208,6 +215,7 @@
     function copyL() { const i = document.getElementById('lInp'); i.select(); navigator.clipboard.writeText(i.value); alert("Link Copied!"); }
     function sendInit() { guestConns.forEach((c, i) => c.send({ type: 'init', role: i+1, max: maxPlayers, pos: positions, turn: turn })); document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
     
+    // Board Generation
     const board = document.getElementById('game-container');
     for (let i = 0; i < 100; i++) {
         let row = Math.floor(i / 10), col = i % 10, num;
