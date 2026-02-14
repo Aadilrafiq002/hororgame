@@ -7,7 +7,6 @@
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg: #050505; --accent: #8b0000; --panel: #1a1a1a; }
-        
         * { box-sizing: border-box; }
         body { 
             background: var(--bg); color: #ddd; font-family: 'Courier New', monospace; 
@@ -15,20 +14,13 @@
             overflow-x: hidden; touch-action: manipulation;
         }
 
-        /* Responsive Board Container */
         #game-wrapper {
-            width: 98vw;
-            max-width: 500px;
-            aspect-ratio: 1 / 1;
-            border: 4px solid #333;
-            display: flex;
-            flex-wrap: wrap-reverse; /* Builds from 1 at bottom to 100 at top */
-            background: #222;
+            width: 98vw; max-width: 500px; aspect-ratio: 1 / 1;
+            border: 4px solid #333; display: flex; flex-wrap: wrap-reverse; background: #222;
         }
 
         .cell { 
-            width: 10%; height: 10%; 
-            background: #111; border: 1px solid #222;
+            width: 10%; height: 10%; background: #111; border: 1px solid #222;
             display: flex; align-items: center; justify-content: center;
             font-size: 10px; position: relative; color: #555;
         }
@@ -43,7 +35,7 @@
         .p3 { background: #ffff33; box-shadow: 0 0 8px #ff0; }
 
         .container { width: 95%; max-width: 500px; margin-top: 10px; }
-        .panel { background: var(--panel); padding: 15px; border-radius: 5px; text-align: center; }
+        .panel { background: var(--panel); padding: 15px; border-radius: 5px; text-align: center; position: relative;}
         
         button { 
             background: var(--accent); color: white; border: none; padding: 15px; 
@@ -63,12 +55,17 @@
             background: #000; z-index: 2000; display: flex; flex-direction: column; 
             justify-content: center; align-items: center; padding: 20px;
         }
+
+        #mute-btn {
+            position: absolute; top: 5px; right: 5px; background: transparent; 
+            border: 1px solid #444; width: auto; padding: 5px; font-size: 12px;
+        }
     </style>
 </head>
 <body>
 
     <div id="setup-screen" class="setup-screen">
-        <h1 style="color:var(--accent)">100 GATES</h1>
+        <h1 style="color:var(--accent); text-shadow: 0 0 10px red;">100 GATES</h1>
         <div id="setup-controls">
             <select id="max-players-select" style="padding: 10px; font-size: 16px;">
                 <option value="2">2 Players</option>
@@ -89,6 +86,7 @@
 
     <div class="container">
         <div class="panel">
+            <button id="mute-btn" onclick="toggleMute()">🔊 Mute</button>
             <div id="dice-val" style="font-size: 40px; margin-bottom: 10px;">🎲</div>
             <button id="roll-btn" onclick="handleRoll()" disabled>ROLL DICE</button>
             <p id="my-id-display" style="font-size: 12px; margin-top: 10px;"></p>
@@ -101,6 +99,13 @@
         <button onclick="closeOverlay()" style="width: auto;">I ACCEPT</button>
     </div>
 
+    <audio id="bg-music" loop>
+        <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-10.mp3" type="audio/mpeg">
+    </audio>
+    <audio id="scare-snd">
+        <source src="https://actions.google.com/sounds/v1/horror/ghost_whispers.ogg" type="audio/ogg">
+    </audio>
+
 <script>
     let peer, conns = [];
     let positions = [1, 1, 1, 1];
@@ -108,18 +113,30 @@
     let isHost = false;
     let myRole = 0;
     let maxPlayers = 2;
+    let isMuted = false;
+
+    const bgMusic = document.getElementById('bg-music');
+    const scareSnd = document.getElementById('scare-snd');
+
+    function toggleMute() {
+        isMuted = !isMuted;
+        bgMusic.muted = isMuted;
+        scareSnd.muted = isMuted;
+        document.getElementById('mute-btn').innerText = isMuted ? "🔇 Unmute" : "🔊 Mute";
+    }
+
+    function startAudio() {
+        bgMusic.volume = 0.3;
+        bgMusic.play().catch(e => console.log("Audio blocked until interaction"));
+    }
 
     function createBoard() {
         const wrapper = document.getElementById('game-wrapper');
         for (let row = 0; row < 10; row++) {
             for (let col = 0; col < 10; col++) {
                 let num;
-                // Traditional Snake Logic
-                if (row % 2 === 0) {
-                    num = (row * 10) + (col + 1);
-                } else {
-                    num = (row * 10) + (10 - col);
-                }
+                if (row % 2 === 0) num = (row * 10) + (col + 1);
+                else num = (row * 10) + (10 - col);
                 const cell = document.createElement('div');
                 cell.className = 'cell';
                 cell.id = 'cell-' + num;
@@ -132,15 +149,11 @@
     const hash = window.location.hash.replace('#', '');
     if (hash) {
         isHost = false;
-        document.getElementById('setup-controls').innerHTML = "Connecting to ritual...";
-        peer = new Peer();
-        peer.on('open', () => {
-            const conn = peer.connect(hash);
-            setupConn(conn);
-        });
+        document.getElementById('setup-controls').innerHTML = "<button onclick='initGuest()'>JOIN RITUAL</button>";
     }
 
     function initHost() {
+        startAudio();
         isHost = true;
         maxPlayers = parseInt(document.getElementById('max-players-select').value);
         peer = new Peer();
@@ -156,6 +169,16 @@
             document.getElementById('player-count-display').innerText = `Souls: ${conns.length + 1} / ${maxPlayers}`;
             if (conns.length === maxPlayers - 1) startGame();
         });
+    }
+
+    function initGuest() {
+        startAudio();
+        peer = new Peer();
+        peer.on('open', () => {
+            const conn = peer.connect(hash);
+            setupConn(conn);
+        });
+        document.getElementById('setup-controls').innerHTML = "Connecting...";
     }
 
     function setupConn(c) {
@@ -183,15 +206,9 @@
     function handleRoll() {
         const roll = Math.floor(Math.random() * 6) + 1;
         document.getElementById('dice-val').innerText = roll;
-        
-        let currentPos = positions[myRole];
-        let nextPos = currentPos + roll;
+        let nextPos = positions[myRole] + roll;
 
-        // Bouncing logic
-        if (nextPos > 100) {
-            let overflow = nextPos - 100;
-            nextPos = 100 - overflow;
-        }
+        if (nextPos > 100) nextPos = 100 - (nextPos - 100);
 
         positions[myRole] = nextPos;
         updateUI();
@@ -216,12 +233,13 @@
         document.getElementById('event-text').innerText = s.t;
         document.getElementById('overlay').style.display = 'flex';
         
+        scareSnd.currentTime = 0;
+        scareSnd.play();
+
         if (navigator.vibrate) navigator.vibrate(400);
 
         if (s.abs) positions[myRole] = s.abs;
-        else {
-            positions[myRole] = Math.max(1, Math.min(99, positions[myRole] + s.m));
-        }
+        else positions[myRole] = Math.max(1, Math.min(99, positions[myRole] + s.m));
     }
 
     function finishTurn() {
@@ -234,7 +252,6 @@
         const payload = {type: 'game', positions, turn};
         if (isHost) conns.forEach(c => c.send(payload));
         else {
-            // Re-connect to sync if connection lost
             const hostConn = peer.connect(hash);
             hostConn.on('open', () => hostConn.send(payload));
         }
