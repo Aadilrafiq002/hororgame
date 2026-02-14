@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>100 GATES: FAST CONNECT</title>
+    <title>100 GATES: FORCE CONNECT</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg: #050505; --accent: #8b0000; --panel: #1a1a1a; }
@@ -36,7 +36,6 @@
             background: var(--accent); color: white; border: none; padding: 18px; 
             cursor: pointer; font-weight: bold; width: 100%; border-radius: 5px; font-size: 20px;
         }
-        button:disabled { background: #222; color: #444; }
         #overlay { 
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             background: #000; display: none; flex-direction: column; 
@@ -84,22 +83,25 @@
         <button onclick="closeOverlay()">CONTINUE</button>
     </div>
 
-    <script>
+<script>
     let peer, conns = [];
     let positions = [1, 1, 1, 1], turn = 0, isHost = false, myRole = 0, maxPlayers = 2;
-    
-    // Lazy Audio Setup
     let bgSnd, jumpSnd, diceSnd;
 
+    // This config helps bypass firewalls/mobile data restrictions
+    const peerConfig = {
+        config: {
+            'iceServers': [
+                { url: 'stun:stun.l.google.com:19302' },
+                { url: 'stun:stun1.l.google.com:19302' }
+            ]
+        }
+    };
+
     function loadAudio() {
-        bgSnd = new Audio('horrorsound.mp3');
-        bgSnd.loop = true;
-        bgSnd.volume = 0.2;
-        
-        jumpSnd = new Audio('jump.mp3');
-        diceSnd = new Audio('dice.mp3');
-        
-        bgSnd.play().catch(() => console.log("Audio waiting for interaction"));
+        bgSnd = new Audio('horrorsound.mp3'); bgSnd.loop = true; bgSnd.volume = 0.2;
+        jumpSnd = new Audio('jump.mp3'); diceSnd = new Audio('dice.mp3');
+        bgSnd.play().catch(() => {});
     }
 
     const hash = window.location.hash.replace('#', '');
@@ -110,13 +112,14 @@
     function initHost() {
         isHost = true;
         maxPlayers = parseInt(document.getElementById('max-players-select').value);
-        peer = new Peer();
+        // Apply firewall fix
+        peer = new Peer(peerConfig);
         peer.on('open', (id) => {
             document.getElementById('setup-controls').style.display = 'none';
             document.getElementById('waiting-area').style.display = 'block';
             document.getElementById('share-url').value = window.location.href + '#' + id;
             document.getElementById('player-count-display').innerText = `SOULS: 1 / ${maxPlayers}`;
-            loadAudio(); // Load audio ONLY after peer ID is ready
+            loadAudio();
         });
         peer.on('connection', (c) => {
             conns.push(c);
@@ -124,14 +127,34 @@
             document.getElementById('player-count-display').innerText = `SOULS: ${conns.length + 1} / ${maxPlayers}`;
             if (conns.length === maxPlayers - 1) startGame();
         });
+        peer.on('error', (err) => alert("Connection Error: " + err.type));
     }
 
     function initGuest() {
-        peer = new Peer();
+        // Apply firewall fix
+        peer = new Peer(peerConfig);
         peer.on('open', () => {
-            const conn = peer.connect(hash);
+            const conn = peer.connect(hash, {reliable: true});
             setupConn(conn);
             loadAudio();
+        });
+        peer.on('error', (err) => alert("Join Error: " + err.type));
+    }
+
+    function setupConn(c) {
+        c.on('open', () => {
+            if(!isHost) document.getElementById('status').innerText = "CONNECTED";
+        });
+        c.on('data', (data) => {
+            if (data.type === 'init') {
+                myRole = data.role; maxPlayers = data.max;
+                document.getElementById('setup-screen').style.display = 'none';
+                updateUI();
+            }
+            if (data.type === 'game') {
+                positions = data.positions; turn = data.turn;
+                updateUI();
+            }
         });
     }
 
@@ -145,20 +168,6 @@
                 wrapper.appendChild(cell);
             }
         }
-    }
-
-    function setupConn(c) {
-        c.on('data', (data) => {
-            if (data.type === 'init') {
-                myRole = data.role; maxPlayers = data.max;
-                document.getElementById('setup-screen').style.display = 'none';
-                updateUI();
-            }
-            if (data.type === 'game') {
-                positions = data.positions; turn = data.turn;
-                updateUI();
-            }
-        });
     }
 
     function startGame() {
@@ -175,23 +184,17 @@
         if (nextPos > 100) nextPos = 100 - (nextPos - 100);
         positions[myRole] = nextPos;
         updateUI();
-
-        if (nextPos === 100) { alert("ESCUTED!"); location.reload(); }
+        if (nextPos === 100) { alert("ESCAPED!"); location.reload(); }
         else if (nextPos > 1 && Math.random() > 0.6) setTimeout(triggerSurprise, 500);
         else finishTurn();
     }
 
     function triggerSurprise() {
-        const surprises = [
-            {t: "BACK 7 STEPS!", m: -7},
-            {t: "FORWARD 10 STEPS!", m: 10},
-            {t: "BACK TO 1!", abs: 1}
-        ];
+        const surprises = [{t: "BACK 7!", m: -7}, {t: "FORWARD 10!", m: 10}, {t: "RESET!", abs: 1}];
         const s = surprises[Math.floor(Math.random() * surprises.length)];
         document.getElementById('event-text').innerText = s.t;
         document.getElementById('overlay').style.display = 'flex';
         if(jumpSnd) jumpSnd.play();
-
         if (s.abs) positions[myRole] = s.abs;
         else positions[myRole] = Math.max(1, Math.min(99, positions[myRole] + s.m));
     }
