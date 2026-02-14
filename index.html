@@ -7,37 +7,55 @@
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg: #050505; --accent: #bc0000; --panel: #1a1a1a; }
-        body { background: var(--bg); color: #cfcfcf; font-family: 'Courier New', monospace; margin: 0; text-align: center; overflow: hidden; touch-action: manipulation; }
+        body { background: var(--bg); color: #cfcfcf; font-family: 'Courier New', monospace; margin: 0; text-align: center; overflow-x: hidden; touch-action: manipulation; }
+        
+        /* Layout Fixes */
         #game-container { display: grid; grid-template-columns: repeat(10, 1fr); width: 90vw; max-width: 380px; aspect-ratio: 1/1; margin: 5px auto; border: 4px solid #333; background: #222; }
         .cell { border: 0.1px solid #222; display: flex; align-items: center; justify-content: center; font-size: 10px; position: relative; }
         .player { width: 16px; height: 16px; border-radius: 50%; position: absolute; border: 2px solid #000; transition: 0.5s; z-index: 10; }
         .p0 { background: #ff3333; } .p1 { background: #33aaff; } .p2 { background: #33ff77; } .p3 { background: #f0ff33; }
-        #emoji-flash { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9000; pointer-events: none; }
-        #flash-content { font-size: 100px; }
+        
+        /* Popups & Overlays */
+        #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 3000; padding: 20px; }
+        .event-card { background: #111; border: 2px solid var(--accent); padding: 15px; border-radius: 15px; width: 280px; }
+        .event-img { width: 100%; height: 200px; object-fit: cover; border-radius: 10px; margin-bottom: 10px; border: 1px solid #444; }
+
+        /* Emote Keyboard Fixed for PC & Mobile */
+        #chat-window { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 500px; background: #111; z-index: 2000; border-top: 2px solid var(--accent); padding-bottom:env(safe-area-inset-bottom); }
+        .emoji-grid { display: grid; grid-template-columns: repeat(5, 1fr); padding: 10px; gap: 8px; }
+        .emoji-grid button { font-size: 24px; padding: 12px; background: #222; color: white; border: 1px solid #333; border-radius: 8px; cursor: pointer; transition: 0.2s; }
+        .emoji-grid button:hover { background: #333; border-color: var(--accent); }
+
+        /* End Screen */
+        #end-screen { position: fixed; inset: 0; background: #000; display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
+
         .panel { background: var(--panel); padding: 8px; border-radius: 10px; width: 90%; max-width: 400px; border: 1px solid var(--accent); margin: 5px auto; }
-        #roll-btn { padding: 12px; width: 100%; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; border: none; }
+        #roll-btn { padding: 15px; width: 100%; border-radius: 5px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; }
         .btn-active { background: #008000; color: white; } 
         .btn-wait { background: #333; color: #666; }
-        #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 3000; }
-        #chat-window { position: fixed; bottom: 0; left: 0; width: 100%; background: #111; z-index: 2000; border-top: 2px solid var(--accent); }
-        .emoji-grid { display: grid; grid-template-columns: repeat(5, 1fr); padding: 10px; gap: 5px; }
-        .emoji-grid button { font-size: 22px; padding: 10px; background: #222; color: white; border: none; border-radius: 5px; }
+        #emoji-flash { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9000; pointer-events: none; }
     </style>
 </head>
 <body>
 
-    <div id="emoji-flash"><p id="flash-content"></p><p id="flash-user" style="color:red;"></p></div>
+    <div id="end-screen">
+        <h1 id="end-title" style="font-size:40px;"></h1>
+        <p id="end-msg" style="font-size:20px; color:#aaa;"></p>
+        <button onclick="location.reload()" style="padding:15px 30px; font-weight:bold; cursor:pointer;">RESTART</button>
+    </div>
+
+    <div id="emoji-flash"><p id="flash-content" style="font-size:100px;"></p><p id="flash-user" style="color:red;"></p></div>
 
     <div id="setup-screen" style="position:fixed; inset:0; background:#000; z-index:8000; display:flex; flex-direction:column; justify-content:center; align-items:center;">
         <h1 style="color:var(--accent);">100 GATES</h1>
-        <div id="ui-box" class="panel"><button onclick="unlockAudio()" style="width:100%; padding:15px; font-weight:bold;">START</button></div>
+        <div id="ui-box" class="panel"><button onclick="unlockAudio()" style="width:100%; padding:15px; font-weight:bold; cursor:pointer;">START GAME</button></div>
     </div>
 
     <div id="ritual-log" style="font-size: 12px; height: 20px; margin-top:10px;">Waiting for players...</div>
     <div id="inv-display" style="color:gold; font-weight:bold;">CARDS: 0</div>
     
     <div id="game-container"></div>
-    <div class="panel" style="margin-bottom: 110px;"><button id="roll-btn" class="btn-wait" onclick="playTurn()" disabled>WAITING...</button></div>
+    <div class="panel" style="margin-bottom: 140px;"><button id="roll-btn" class="btn-wait" onclick="playTurn()" disabled>WAITING...</button></div>
 
     <div id="chat-window">
         <div class="emoji-grid">
@@ -68,7 +86,7 @@
     function showHostUI() {
         document.getElementById('ui-box').innerHTML = `
             <select id="p-count" style="width:100%; padding:10px;"><option value="2">2 Players</option><option value="3">3 Players</option><option value="4">4 Players</option></select>
-            <button onclick="startAsHost()" style="background:red; color:white; width:100%; margin-top:10px; padding:10px; border:none;">HOST</button>`;
+            <button onclick="startAsHost()" style="background:red; color:white; width:100%; margin-top:10px; padding:10px; border:none; cursor:pointer;">HOST</button>`;
     }
 
     function startAsHost() {
@@ -76,7 +94,7 @@
         peer = new Peer();
         peer.on('open', (id) => { 
             myRole = 0; const link = window.location.origin + window.location.pathname + '#' + id;
-            document.getElementById('ui-box').innerHTML = `<input type="text" value="${link}" id="lInp" readonly style="width:100%;"><button onclick="copyL()">COPY LINK</button>`;
+            document.getElementById('ui-box').innerHTML = `<p style="font-size:10px">SEND THIS LINK:</p><input type="text" value="${link}" id="lInp" readonly style="width:100%;"><button onclick="copyL()" style="width:100%; padding:10px; margin-top:5px;">COPY LINK</button>`;
         });
         peer.on('connection', (c) => { 
             guestConns.push(c); 
@@ -95,7 +113,11 @@
         let roll = Math.floor(Math.random() * 6) + 1;
         positions[myRole] += roll;
         personalTurnCounter++;
-        if (positions[myRole] >= 100) { sync(`PLAYER ${myRole+1} WON!`, myRole); return; }
+        if (positions[myRole] >= 100) { 
+            positions[myRole] = 100;
+            sync(`PLAYER ${myRole+1} WON!`, myRole); 
+            return; 
+        }
         
         if (personalTurnCounter >= 2) {
             personalTurnCounter = 0;
@@ -105,22 +127,34 @@
         }
     }
 
+    // IMAGE SYSTEM FIXED HERE
     function triggerResult() {
         const overlay = document.getElementById('overlay');
         overlay.style.display = "flex";
-        let isTrap = Math.random() > 0.5;
+        let isTrap = Math.random() > 0.4;
+        let randomImgNum = Math.floor(Math.random() * 5) + 1;
 
         if (!isTrap) {
             inventory.passes++;
-            overlay.innerHTML = `<h2>LOOT</h2><p>Found a Sabotage Card!</p><button onclick="closeOverlaySync('P${myRole+1} got a card')">OK</button>`;
+            overlay.innerHTML = `
+                <div class="event-card">
+                    <img src="f${randomImgNum}.jpg" class="event-img">
+                    <h2 style="color:gold;">LOOT</h2><p>Found a Sabotage Card!</p>
+                    <button onclick="closeOverlaySync('P${myRole+1} got loot')" style="width:100%; padding:10px; cursor:pointer;">OK</button>
+                </div>`;
         } else {
             playSound('jump');
             let passButtons = "";
             if (inventory.passes > 0) {
-                for (let i=0; i<maxPlayers; i++) if(i!==myRole) passButtons += `<button onclick="usePass(${i})" style="background:purple; color:white; margin:5px;">PASS TO P${i+1}</button>`;
+                for (let i=0; i<maxPlayers; i++) if(i!==myRole) passButtons += `<button onclick="usePass(${i})" style="background:purple; color:white; margin:5px; padding:10px; border:none; border-radius:5px; cursor:pointer;">PASS TO P${i+1}</button>`;
             }
-            overlay.innerHTML = `<h2 style="color:red;">TRAP!</h2><p>-10 Steps</p>
-                <button onclick="takePunishment()">ACCEPT</button>${passButtons}`;
+            overlay.innerHTML = `
+                <div class="event-card">
+                    <img src="h${randomImgNum}.jpg" class="event-img">
+                    <h2 style="color:red;">TRAP!</h2><p>-10 Steps</p>
+                    <button onclick="takePunishment()" style="width:100%; padding:10px; margin-bottom:10px; cursor:pointer;">ACCEPT</button>
+                    ${passButtons}
+                </div>`;
         }
         updateUI();
     }
@@ -144,10 +178,21 @@
         if (isHost) broadcast(m); else hostConn.send(m);
     }
 
-    function handleData(d) {
-        if (isHost) { // HOST RELAY SYSTEM
-            guestConns.forEach(c => { if(c.peer !== d.fromPeer) c.send(d); });
+    function showEnd(winIdx) {
+        const screen = document.getElementById('end-screen');
+        screen.style.display = "flex";
+        if(winIdx === myRole) {
+            document.getElementById('end-title').innerText = "🏆 CHAMPION!";
+            document.getElementById('end-msg').innerText = "You escaped the 100 Gates!";
+        } else {
+            playSound('noob');
+            document.getElementById('end-title').innerText = "💀 NOOB ALERT!";
+            document.getElementById('end-msg').innerText = "You are stuck in the void forever.";
         }
+    }
+
+    function handleData(d) {
+        if (isHost) { guestConns.forEach(c => { if(c.peer !== d.fromPeer) c.send(d); }); }
         if (d.type === 'chat') {
             const f = document.getElementById('emoji-flash');
             document.getElementById('flash-content').innerText = d.text;
@@ -157,16 +202,25 @@
             setTimeout(() => f.style.display = "none", 1500);
         }
         if (d.type === 'init') { myRole = d.role; maxPlayers = d.max; positions = d.pos; turn = d.turn; document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
-        if (d.type === 'sync') { positions = d.pos; turn = d.turn; document.getElementById('ritual-log').innerText = d.msg; updateUI(); }
-        if (d.type === 'sabotage') { positions[d.to] = Math.max(1, positions[d.to]-10); turn = (turn + 1) % maxPlayers; document.getElementById('ritual-log').innerText = d.msg; updateUI(); }
+        if (d.type === 'sync') { 
+            positions = d.pos; turn = d.turn; document.getElementById('ritual-log').innerText = d.msg; 
+            if(d.winner !== -1) showEnd(d.winner);
+            updateUI(); 
+        }
+        if (d.type === 'sabotage') { 
+            positions[d.to] = Math.max(1, positions[d.to]-10); 
+            if(d.to === myRole) playSound('noob');
+            updateUI(); 
+        }
     }
 
     function broadcast(d) { handleData(d); guestConns.forEach(c => c.send(d)); }
 
     function sync(msg, win = -1) {
-        turn = (turn + 1) % maxPlayers;
+        if(win === -1) turn = (turn + 1) % maxPlayers;
         const d = { type: 'sync', pos: positions, turn: turn, msg: msg, winner: win };
         if (isHost) broadcast(d); else hostConn.send(d);
+        if(win !== -1) showEnd(win);
     }
 
     function updateUI() {
@@ -202,4 +256,3 @@
 </script>
 </body>
 </html>
-
