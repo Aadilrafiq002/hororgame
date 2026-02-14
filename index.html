@@ -14,6 +14,11 @@
         .player { width: 16px; height: 16px; border-radius: 50%; position: absolute; border: 2px solid #000; transition: 0.5s; z-index: 10; }
         .p0 { background: #ff3333; } .p1 { background: #33aaff; } .p2 { background: #33ff77; } .p3 { background: #f0ff33; }
 
+        /* Emoji Flash Overlay */
+        #emoji-flash { position: fixed; inset: 0; background: rgba(0,0,0,0.9); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9000; pointer-events: none; }
+        #flash-content { font-size: 120px; margin: 0; }
+        #flash-user { color: var(--accent); font-size: 20px; }
+
         #judgement-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: none; flex-direction: column; justify-content: center; align-items: center; }
         .judgement-img { width: 280px; height: 280px; border: 5px solid gold; margin-bottom: 15px; }
 
@@ -23,28 +28,44 @@
         
         #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 3000; }
         #inv-display { font-size: 12px; color: gold; margin-bottom: 5px; }
+
+        /* Emoji Keyboard */
+        #chat-window { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 400px; background: #111; z-index: 2000; border-top: 1px solid #333; }
+        .emoji-grid { display: grid; grid-template-columns: repeat(5, 1fr); padding: 5px; gap: 5px; }
+        .emoji-grid button { font-size: 20px; padding: 10px; background: #222; border: 1px solid #333; color: white; border-radius: 5px; }
     </style>
 </head>
 <body>
+
+    <div id="emoji-flash"><p id="flash-content"></p><p id="flash-user"></p></div>
 
     <div id="judgement-screen">
         <h1 id="j-title" style="font-size: 35px;"></h1>
         <img id="j-img" class="judgement-img" src="">
         <h2 id="j-msg" style="padding: 0 20px;"></h2>
-        <div id="wait-host" style="color: #666; display: none;">WAITING FOR HOST TO RESTART...</div>
-        <button id="restart-btn" onclick="location.reload()" style="display:none; background:white; padding:15px 30px; border:none; font-weight:bold;">RESTART RITUAL</button>
+        <button id="restart-btn" onclick="location.reload()" style="display:none; background:white; padding:15px 30px; border:none; font-weight:bold; margin-top:20px;">RESTART</button>
     </div>
 
     <div id="setup-screen" style="position:fixed; inset:0; background:#000; z-index:8000; display:flex; flex-direction:column; justify-content:center; align-items:center;">
         <h1 style="color:var(--accent); font-size: 40px;">100 GATES</h1>
-        <div id="ui-box" class="panel"><button onclick="unlockAudio()" style="background:white; padding:15px; width:100%; border:none; font-weight:bold;">START</button></div>
+        <div id="ui-box" class="panel"><button onclick="startGame()" style="background:white; padding:15px; width:100%; border:none; font-weight:bold;">START</button></div>
     </div>
 
     <div id="ritual-log" style="font-size: 12px; height: 20px; color: #888;">...</div>
     <div id="inv-display">Inventory: Passes (0)</div>
     
     <div id="game-container"></div>
-    <div class="panel"><button id="roll-btn" class="btn-wait" onclick="playTurn()" disabled>ROLL DICE</button></div>
+    <div class="panel" style="margin-bottom: 80px;"><button id="roll-btn" class="btn-wait" onclick="playTurn()" disabled>ROLL DICE</button></div>
+
+    <div id="chat-window">
+        <div class="emoji-grid">
+            <button onclick="sendEmoji('👻')">👻</button><button onclick="sendEmoji('💀')">💀</button>
+            <button onclick="sendEmoji('😱')">😱</button><button onclick="sendEmoji('🔥')">🔥</button>
+            <button onclick="sendEmoji('😈')">😈</button><button onclick="sendEmoji('😂')">😂</button>
+            <button onclick="sendEmoji('🙏')">🙏</button><button onclick="sendEmoji('🤫')">🤫</button>
+            <button onclick="sendEmoji('👎')">👎</button><button onclick="sendEmoji('🤡')">🤡</button>
+        </div>
+    </div>
 
     <div id="overlay"></div>
 
@@ -60,15 +81,9 @@
         noob: new Audio('noob.mp3')
     };
 
-    function playSound(n) { 
-        const s = sounds[n].cloneNode(); 
-        s.play().catch(() => {}); 
-    }
+    function playSound(n) { sounds[n].currentTime = 0; sounds[n].play().catch(() => {}); }
 
-    function unlockAudio() {
-        Object.keys(sounds).forEach(k => {
-            sounds[k].play().then(() => { sounds[k].pause(); sounds[k].currentTime = 0; }).catch(() => {});
-        });
+    function startGame() {
         const rID = window.location.hash.substring(1);
         if (rID) startAsGuest(rID); else showHostUI();
     }
@@ -81,7 +96,10 @@
     ];
 
     function showHostUI() {
-        document.getElementById('ui-box').innerHTML = `<select id="p-count" style="width:100%; padding:10px;"><option value="2">2 Players</option><option value="3">3 Players</option><option value="4">4 Players</option></select><button onclick="startAsHost()" style="background:red; color:white; padding:10px; width:100%; margin-top:10px; border:none;">HOST</button>`;
+        document.getElementById('ui-box').innerHTML = `
+            <select id="p-count" style="width:100%; padding:10px;"><option value="2">2 Players</option><option value="3">3 Players</option><option value="4">4 Players</option></select>
+            <button onclick="startAsHost()" style="background:red; color:white; padding:10px; width:100%; margin-top:10px; border:none;">HOST</button>
+        `;
     }
 
     function startAsHost() {
@@ -89,7 +107,7 @@
         peer = new Peer();
         peer.on('open', (id) => { 
             myRole = 0; const link = window.location.origin + window.location.pathname + '#' + id;
-            document.getElementById('ui-box').innerHTML = `<input type="text" value="${link}" id="lInp" readonly style="width:100%;"><button onclick="copyL()">COPY</button>`;
+            document.getElementById('ui-box').innerHTML = `<input type="text" value="${link}" id="lInp" readonly style="width:100%; margin-bottom:5px;"><button onclick="copyL()">COPY LINK</button>`;
         });
         peer.on('connection', (c) => { 
             guestConns.push(c); 
@@ -100,10 +118,7 @@
 
     function startAsGuest(id) { 
         peer = new Peer(); 
-        peer.on('open', () => { 
-            hostConn = peer.connect(id); 
-            hostConn.on('data', d => handleData(d)); 
-        }); 
+        peer.on('open', () => { hostConn = peer.connect(id); hostConn.on('data', d => handleData(d)); }); 
     }
 
     function playTurn() {
@@ -111,19 +126,9 @@
         let roll = Math.floor(Math.random() * 6) + 1;
         positions[myRole] += roll;
         personalTurnCounter++;
-
-        if (positions[myRole] >= 100) {
-            positions[myRole] = 100;
-            sync(`PLAYER ${myRole+1} WON!`, myRole); 
-            return;
-        }
-
-        if (personalTurnCounter >= 2) {
-            personalTurnCounter = 0;
-            triggerResult();
-        } else {
-            sync(`P${myRole+1} rolled ${roll}`);
-        }
+        if (positions[myRole] >= 100) { positions[myRole] = 100; sync(`PLAYER ${myRole+1} WON!`, myRole); return; }
+        if (personalTurnCounter >= 2) { personalTurnCounter = 0; triggerResult(); } 
+        else { sync(`P${myRole+1} rolled ${roll}`); }
     }
 
     function triggerResult() {
@@ -132,114 +137,96 @@
         overlay.style.display = "flex";
 
         if (ev.isItem) {
-            inventory.passes++;
-            updateInventoryUI();
-            overlay.innerHTML = `<img src="f${Math.floor(Math.random()*5)+1}.jpg" style="width:250px;"><h2 style="color:gold;">ITEM FOUND!</h2><p>${ev.t}</p><button onclick="closeOverlaySync('P${myRole+1} found a Pass card!')" style="background:white; padding:15px;">COLLECT</button>`;
+            inventory.passes++; updateInventoryUI();
+            overlay.innerHTML = `<img src="f1.jpg" style="width:250px;"><h2 style="color:gold;">LOOT</h2><p>${ev.t}</p><button onclick="closeOverlaySync('P${myRole+1} found a Pass card!')" style="background:white; padding:15px;">ADD TO BAG</button>`;
         } else if (!ev.isTrap) {
             positions[myRole] += ev.m;
             overlay.innerHTML = `<img src="f1.jpg" style="width:250px;"><h2 style="color:green;">LUCKY</h2><p>${ev.t}</p><button onclick="closeOverlaySync('P${myRole+1} moved forward!')" style="background:white; padding:15px;">OK</button>`;
         } else {
-            let passButtons = "";
+            let passBtn = "";
             if (inventory.passes > 0) {
-                for (let i = 0; i < maxPlayers; i++) {
-                    if (i !== myRole) passButtons += `<button onclick="usePass(${i}, ${ev.m})" style="background:purple; color:white; padding:10px; margin:5px;">PASS TO P${i+1}</button>`;
-                }
+                for (let i = 0; i < maxPlayers; i++) { if (i !== myRole) passBtn += `<button onclick="usePass(${i}, ${ev.m})" style="background:purple; color:white; padding:10px; margin:5px;">PASS TO P${i+1}</button>`; }
             }
             overlay.innerHTML = `
-                <img src="h${Math.floor(Math.random()*5)+1}.jpg" style="width:250px; border:3px solid red;">
-                <h2 style="color:red;">CURSED!</h2><p>${ev.t}</p>
-                <button onclick="takePunishment(${ev.m})" style="background:black; color:white; border:1px solid white; padding:10px; margin-bottom:10px;">ACCEPT FATE</button>
-                ${passButtons}
-                ${inventory.passes === 0 ? "<p style='color:gray; font-size:10px;'>Need a 'Pass' card to sabotage!</p>" : ""}
+                <img src="h1.jpg" style="width:250px; border:3px solid red;">
+                <h2 style="color:red;">CURSED</h2><p>${ev.t}</p>
+                <button onclick="takePunishment(${ev.m})" style="background:black; color:white; border:1px solid white; padding:10px; margin-bottom:10px;">I ACCEPT</button>
+                ${passBtn}
             `;
         }
     }
 
     function usePass(targetIdx, amount) {
-        inventory.passes--;
-        updateInventoryUI();
+        inventory.passes--; updateInventoryUI();
         document.getElementById('overlay').style.display = "none";
-        const data = { type: 'sabotage', from: myRole, to: targetIdx, move: amount, msg: `P${myRole+1} PASSED THE CURSE TO P${targetIdx+1}!` };
+        const data = { type: 'sabotage', from: myRole, to: targetIdx, move: amount, msg: `P${myRole+1} SABOTAGED P${targetIdx+1}!` };
         if (isHost) broadcastSabotage(data); else hostConn.send(data);
     }
 
     function takePunishment(amount) {
         document.getElementById('overlay').style.display = "none";
-        positions[myRole] += amount;
-        if (positions[myRole] < 1) positions[myRole] = 1;
-        playSound('noob');
-        sync(`P${myRole+1} took the punishment!`);
+        positions[myRole] += amount; if (positions[myRole] < 1) positions[myRole] = 1;
+        playSound('noob'); sync(`P${myRole+1} took the hit!`);
     }
 
-    function broadcastSabotage(d) {
-        executeSabotage(d);
-        guestConns.forEach(c => c.send(d));
-    }
-
-    function executeSabotage(d) {
-        positions[d.to] += d.move;
-        if (positions[d.to] < 1) positions[d.to] = 1;
-        if (d.to === myRole) playSound('noob');
-        turn = (turn + 1) % maxPlayers;
-        document.getElementById('ritual-log').innerText = d.msg;
-        updateUI();
+    function sendEmoji(e) {
+        const m = { type: 'chat', sender: `PLAYER ${myRole+1}`, text: e };
+        if(isHost) guestConns.forEach(c => c.send(m)); else hostConn.send(m);
+        handleData(m);
     }
 
     function handleData(d) {
+        if(d.type === 'chat') {
+            const flash = document.getElementById('emoji-flash');
+            document.getElementById('flash-content').innerText = d.text;
+            document.getElementById('flash-user').innerText = d.sender;
+            flash.style.display = "flex";
+            if(d.text === '🤡') playSound('noob');
+            setTimeout(() => flash.style.display = "none", 1500);
+        }
         if(d.type === 'init') { myRole = d.role; maxPlayers = d.max; positions = d.pos; turn = d.turn; document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
         if(d.type === 'sync') { 
-            positions = d.pos; turn = d.turn; 
-            document.getElementById('ritual-log').innerText = d.msg;
+            positions = d.pos; turn = d.turn; document.getElementById('ritual-log').innerText = d.msg;
             if(d.winner !== -1) showJudgement(d.winner);
             updateUI();
         }
-        if(d.type === 'sabotage') {
-            if (isHost) broadcastSabotage(d);
-            else executeSabotage(d);
-        }
+        if(d.type === 'sabotage') { if (isHost) broadcastSabotage(d); else executeSabotage(d); }
     }
 
+    function executeSabotage(d) {
+        positions[d.to] += d.move; if (positions[d.to] < 1) positions[d.to] = 1;
+        if (d.to === myRole) playSound('noob');
+        turn = (turn + 1) % maxPlayers; document.getElementById('ritual-log').innerText = d.msg; updateUI();
+    }
+
+    function broadcastSabotage(d) { executeSabotage(d); guestConns.forEach(c => c.send(d)); }
+
     function showJudgement(winIdx) {
-        const screen = document.getElementById('judgement-screen');
-        screen.style.display = "flex";
+        const screen = document.getElementById('judgement-screen'); screen.style.display = "flex";
         if (winIdx === myRole) {
-            document.getElementById('j-title').innerText = "CHAMPION!";
-            document.getElementById('j-title').style.color = "gold";
-            document.getElementById('j-img').src = "f1.jpg";
-            document.getElementById('j-msg').innerText = "The gates have opened for you!";
+            document.getElementById('j-title').innerText = "WINNER"; document.getElementById('j-title').style.color = "gold";
         } else {
-            playSound('noob');
-            document.getElementById('j-title').innerText = "LOCKED IN!";
-            document.getElementById('j-title').style.color = "red";
-            document.getElementById('j-img').src = "f2.jpg";
-            document.getElementById('j-msg').innerText = "YOU NOOB! Left in the void.";
+            playSound('noob'); document.getElementById('j-title').innerText = "NOOB"; document.getElementById('j-title').style.color = "red";
         }
         if(isHost) document.getElementById('restart-btn').style.display = "block";
-        else document.getElementById('wait-host').style.display = "block";
     }
 
     function sync(msg, winnerIdx = -1) {
         if(winnerIdx === -1) turn = (turn + 1) % maxPlayers;
         const d = { type: 'sync', pos: positions, turn: turn, msg: msg, winner: winnerIdx };
         if (isHost) guestConns.forEach(c => c.send(d)); else hostConn.send(d);
-        updateUI();
-        if(winnerIdx !== -1) showJudgement(winnerIdx);
+        updateUI(); if(winnerIdx !== -1) showJudgement(winnerIdx);
     }
 
     function updateUI() {
         const isTurn = (turn === myRole);
         const btn = document.getElementById('roll-btn');
-        btn.disabled = !isTurn;
-        btn.innerText = isTurn ? "ROLL DICE" : `P${turn+1}'S TURN`;
+        btn.disabled = !isTurn; btn.innerText = isTurn ? "ROLL" : `P${turn+1}`;
         btn.className = isTurn ? "btn-active" : "btn-wait";
         document.querySelectorAll('.player').forEach(p => p.remove());
         positions.slice(0, maxPlayers).forEach((pos, i) => {
             const cell = document.getElementById('cell-' + pos);
-            if (cell) {
-                const dot = document.createElement('div');
-                dot.className = `player p${i}`;
-                cell.appendChild(dot);
-            }
+            if (cell) { const dot = document.createElement('div'); dot.className = `player p${i}`; cell.appendChild(dot); }
         });
     }
 
@@ -252,8 +239,7 @@
     for (let i = 0; i < 100; i++) {
         let row = Math.floor(i / 10), col = i % 10, num;
         if (row % 2 === 0) num = 100 - (row * 10 + col); else num = 100 - (row * 10 + (9 - col));
-        let cell = document.createElement('div');
-        cell.className = 'cell'; cell.id = 'cell-' + num; cell.innerText = num;
+        let cell = document.createElement('div'); cell.className = 'cell'; cell.id = 'cell-' + num; cell.innerText = num;
         board.appendChild(cell);
     }
 </script>
