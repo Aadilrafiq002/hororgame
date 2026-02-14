@@ -3,45 +3,46 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>100 GATES: PERSISTENT</title>
+    <title>100 GATES: RELIABLE</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg: #050505; --accent: #8b0000; }
         body { background: var(--bg); color: #ddd; font-family: 'Courier New', monospace; margin: 0; text-align: center; overflow: hidden; }
         #loading-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: none; flex-direction: column; justify-content: center; align-items: center; }
-        .spinner { width: 50px; height: 50px; border: 5px solid #222; border-top: 5px solid red; border-radius: 50%; animation: spin 1s linear infinite; }
+        .spinner { width: 40px; height: 40px; border: 4px solid #333; border-top: 4px solid red; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
         .setup-screen { position: fixed; inset: 0; background: #000; z-index: 4000; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        .panel { background: #1a1a1a; padding: 20px; border-radius: 10px; width: 90%; max-width: 400px; border: 1px solid #333; margin-bottom: 10px; }
-        button { background: var(--accent); color: white; border: none; padding: 20px; width: 100%; border-radius: 5px; font-size: 18px; font-weight: bold; cursor: pointer; }
+        .panel { background: #1a1a1a; padding: 20px; border-radius: 10px; width: 90%; max-width: 400px; border: 1px solid #333; }
+        button { background: var(--accent); color: white; border: none; padding: 20px; width: 100%; border-radius: 5px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 10px; }
         #game-wrapper { width: 95vw; max-width: 400px; aspect-ratio: 1/1; display: flex; flex-wrap: wrap-reverse; margin: 10px auto; border: 2px solid #333; background: #111; }
         .cell { width: 10%; height: 10%; border: 0.1px solid #222; display: flex; align-items: center; justify-content: center; font-size: 8px; position: relative; }
-        .player { width: 14px; height: 14px; border-radius: 50%; position: absolute; border: 1px solid white; transition: 0.4s; z-index: 50; }
-        .p0 { background: red; } .p1 { background: cyan; } .p2 { background: lime; } .p3 { background: yellow; }
+        .player { width: 16px; height: 16px; border-radius: 50%; position: absolute; border: 2px solid white; transition: 0.3s; z-index: 100; }
+        .p0 { background: #ff0000; } .p1 { background: #00ffff; } .p2 { background: #00ff00; } .p3 { background: #ffff00; }
+        #status { font-weight: bold; color: yellow; height: 20px; margin: 5px; font-size: 14px; }
     </style>
 </head>
 <body>
-    <div id="loading-screen"><div class="spinner"></div><h2 id="loading-msg" style="color:red; margin-top:20px;">RECOVERING...</h2></div>
+    <div id="loading-screen"><div class="spinner"></div><h2 id="loading-msg" style="color:red; margin-top:20px;">HANDSHAKING...</h2></div>
     <div id="setup-screen" class="setup-screen">
         <h1 style="color:var(--accent); font-size: 40px;">100 GATES</h1>
-        <div id="ui-box" class="panel"><p>Checking for active ritual...</p></div>
+        <div id="ui-box" class="panel"></div>
     </div>
-    <div id="status" style="padding:5px; color:orange; font-size: 12px;">OFFLINE</div>
+    <div id="status">INITIALIZING...</div>
     <div id="game-wrapper"></div>
-    <div class="panel" style="margin: 0 auto;"><div id="dice-res" style="font-size:30px">🎲</div><button id="roll-btn" onclick="rollDice()" disabled>ROLL DICE</button></div>
+    <div class="panel" style="margin: 0 auto; background: #111;">
+        <div id="dice-res" style="font-size:40px; margin-bottom: 10px;">🎲</div>
+        <button id="roll-btn" onclick="rollDice()" disabled>ROLL DICE</button>
+    </div>
 
 <script>
-    let peer, conns = [], myRole = -1, isHost = false, turn = 0, positions = [1,1,1,1], maxPlayers = 2;
-    let sounds = {};
+    let peer, hostConn, guestConns = [];
+    let myRole = -1, isHost = false, turn = 0, positions = [1,1,1,1], maxPlayers = 2;
+    let sounds = { dice: new Audio('dice.mp3'), jump: new Audio('jump.mp3') };
 
     window.onload = () => {
         createBoard();
-        initSounds();
         const roomID = window.location.hash.substring(1);
-        
         if (roomID) {
-            // Save ID for potential refresh
-            localStorage.setItem('lastRoom', roomID);
             startAsGuest(roomID);
         } else {
             showHostUI();
@@ -50,140 +51,129 @@
 
     function showHostUI() {
         document.getElementById('ui-box').innerHTML = `
-            <p>New Ritual</p>
-            <select id="p-count" style="width:100%; padding:10px; margin-bottom:10px; background:#000; color:white;">
+            <p>Host a New Ritual</p>
+            <select id="p-count" style="width:100%; padding:10px; background:#000; color:white;">
                 <option value="2">2 Players</option><option value="3">3 Players</option><option value="4">4 Players</option>
-            </select><button onclick="startAsHost()">HOST RITUAL</button>`;
-    }
-
-    function initSounds() {
-        sounds.jump = new Audio('jump.mp3');
-        sounds.dice = new Audio('dice.mp3');
+            </select>
+            <button onclick="startAsHost()">OPEN THE GATES</button>`;
     }
 
     function startAsHost() {
         isHost = true;
         maxPlayers = parseInt(document.getElementById('p-count').value);
-        showLoading("SUMMONING ID...");
-        
+        showLoading("SUMMONING SERVER...");
         peer = new Peer({ config: {'iceServers': [{ url: 'stun:stun.l.google.com:19302' }]}});
+        
         peer.on('open', (id) => {
             hideLoading();
-            const inviteLink = window.location.origin + window.location.pathname + '#' + id;
+            myRole = 0;
+            const link = window.location.origin + window.location.pathname + '#' + id;
             document.getElementById('ui-box').innerHTML = `
-                <p style="color:yellow">SHARE THIS LINK:</p>
-                <input type="text" value="${inviteLink}" id="linkInput" style="width:100%; padding:10px; background:#000; color:red;" readonly>
-                <button onclick="copyLink()" style="padding:10px; margin-top:5px;">COPY LINK</button>
-                <p id="soul-count" style="color:red; margin-top:15px;">Joined: 1 / ${maxPlayers}</p>`;
+                <p style="color:yellow">FRIEND LINK:</p>
+                <input type="text" value="${link}" id="linkInp" style="width:100%; padding:10px; background:#000; color:red; border:1px solid #444;" readonly>
+                <button onclick="copyLink()">COPY LINK</button>
+                <p id="p-joined" style="color:red; margin-top:15px; font-size:20px;">Players: 1 / ${maxPlayers}</p>`;
         });
 
-        peer.on('connection', (c) => {
-            // Check if this is a reconnecting player
-            let existingIdx = conns.findIndex(oldC => oldC.peer === c.peer);
-            if(existingIdx > -1) conns[existingIdx] = c;
-            else conns.push(c);
-
-            setupConn(c);
+        peer.on('connection', (conn) => {
+            guestConns.push(conn);
+            document.getElementById('p-joined').innerText = `Players: ${guestConns.length + 1} / ${maxPlayers}`;
             
-            // If game already started, send current state immediately
-            if(myRole === 0) {
-                let roleForJoiner = (existingIdx > -1) ? (existingIdx + 1) : conns.length;
-                c.on('open', () => {
-                    c.send({type:'init', role: roleForJoiner, max: maxPlayers, pos: positions, turn: turn});
-                });
-            }
-
-            document.getElementById('soul-count').innerText = `Joined: ${conns.length + 1} / ${maxPlayers}`;
-            if (conns.length === maxPlayers - 1 && myRole === -1) {
-                myRole = 0;
-                setTimeout(startGame, 800);
+            conn.on('data', (data) => handleData(data));
+            
+            if (guestConns.length === maxPlayers - 1) {
+                setTimeout(sendInitialState, 1000);
             }
         });
     }
 
-    function startGame() {
-        conns.forEach((conn, i) => conn.send({type:'init', role: i+1, max: maxPlayers, pos: positions, turn: turn}));
+    function sendInitialState() {
+        guestConns.forEach((c, i) => {
+            c.send({ type: 'init', role: i + 1, max: maxPlayers, pos: positions, turn: turn });
+        });
         document.getElementById('setup-screen').style.display = 'none';
         updateUI();
     }
 
     function startAsGuest(id) {
-        showLoading("REJOINING RITUAL...");
+        showLoading("JOINING RITUAL...");
         peer = new Peer({ config: {'iceServers': [{ url: 'stun:stun.l.google.com:19302' }]}});
-        peer.on('open', () => { 
-            const c = peer.connect(id, {reliable: true}); 
-            setupConn(c); 
+        peer.on('open', () => {
+            hostConn = peer.connect(id, { reliable: true });
+            hostConn.on('data', (data) => handleData(data));
+            hostConn.on('open', () => {
+                hideLoading();
+                document.getElementById('status').innerText = "CONNECTED to GATES";
+            });
         });
-        peer.on('error', () => {
-            localStorage.removeItem('lastRoom');
-            alert("Ritual Lost."); window.location.hash = ""; location.reload();
-        });
+        peer.on('error', () => { alert("Host Offline"); window.location.hash=""; location.reload(); });
     }
 
-    function setupConn(c) {
-        c.on('data', (data) => {
-            if (data.type === 'init') {
-                myRole = data.role; maxPlayers = data.max;
-                if(data.pos) positions = data.pos;
-                if(data.turn !== undefined) turn = data.turn;
-                document.getElementById('setup-screen').style.display = 'none';
-                hideLoading(); updateUI();
-            }
-            if (data.type === 'sync') {
-                positions = data.pos; turn = data.turn;
-                if(data.scare && sounds.jump) sounds.jump.play();
-                updateUI();
-            }
-        });
-    }
-
-    function rollDice() {
-        if(sounds.dice) sounds.dice.play();
-        let roll = Math.floor(Math.random() * 6) + 1;
-        document.getElementById('dice-res').innerText = roll;
-        positions[myRole] += roll;
-        if(positions[myRole] >= 100) positions[myRole] = 100;
-        
-        let scare = (Math.random() > 0.85);
-        if(scare && sounds.jump) sounds.jump.play();
-        
-        turn = (turn + 1) % maxPlayers;
-        sync(scare); updateUI();
-        if(positions[myRole] === 100) { alert("YOU ESCAPED!"); localStorage.clear(); location.reload(); }
-    }
-
-    function sync(scare = false) {
-        const d = {type:'sync', pos: positions, turn: turn, scare: scare};
-        if(isHost) {
-            conns.forEach(c => { if(c.open) c.send(d); });
-        } else {
-            const hostID = window.location.hash.substring(1);
-            const c = peer.connect(hostID);
-            c.on('open', () => c.send(d));
+    function handleData(data) {
+        if (data.type === 'init') {
+            myRole = data.role; maxPlayers = data.max;
+            positions = data.pos; turn = data.turn;
+            document.getElementById('setup-screen').style.display = 'none';
+            updateUI();
+        }
+        if (data.type === 'sync') {
+            positions = data.pos; turn = data.turn;
+            if (data.scare) sounds.jump.play();
+            updateUI();
         }
     }
 
+    function rollDice() {
+        sounds.dice.play();
+        let roll = Math.floor(Math.random() * 6) + 1;
+        document.getElementById('dice-res').innerText = roll;
+        
+        // Logic Move
+        positions[myRole] += roll;
+        if (positions[myRole] >= 100) positions[myRole] = 100;
+
+        let scare = (Math.random() > 0.85);
+        if (scare) sounds.jump.play();
+
+        turn = (turn + 1) % maxPlayers;
+        
+        // Global Sync
+        const msg = { type: 'sync', pos: positions, turn: turn, scare: scare };
+        if (isHost) {
+            guestConns.forEach(c => c.send(msg));
+        } else {
+            hostConn.send(msg);
+        }
+        updateUI();
+        if (positions[myRole] === 100) { alert("YOU ESCAPED!"); location.hash=""; location.reload(); }
+    }
+
     function updateUI() {
-        document.getElementById('status').innerText = (turn === myRole) ? "YOUR TURN" : "WAITING...";
-        document.getElementById('roll-btn').disabled = (turn !== myRole);
+        const isMyTurn = (turn === myRole);
+        document.getElementById('status').innerText = isMyTurn ? ">> YOUR TURN <<" : "OTHERS ARE MOVING...";
+        document.getElementById('status').style.color = isMyTurn ? "red" : "gray";
+        document.getElementById('roll-btn').disabled = !isMyTurn;
+
         document.querySelectorAll('.player').forEach(p => p.remove());
         positions.slice(0, maxPlayers).forEach((p, i) => {
             const cell = document.getElementById('cell-' + p);
-            if(cell) {
-                const div = document.createElement('div');
-                div.className = 'player p' + i; cell.appendChild(div);
+            if (cell) {
+                const dot = document.createElement('div');
+                dot.className = `player p${i}`;
+                cell.appendChild(dot);
             }
         });
     }
 
     function copyLink() {
-        const copyText = document.getElementById("linkInput");
-        copyText.select(); navigator.clipboard.writeText(copyText.value);
-        alert("Copied!");
+        const inp = document.getElementById('linkInp');
+        inp.select();
+        navigator.clipboard.writeText(inp.value);
+        alert("Link Copied! Send to friend.");
     }
 
-    function showLoading(m) { document.getElementById('loading-screen').style.display = 'flex'; document.getElementById('loading-msg').innerText = m; }
-    function hideLoading() { document.getElementById('loading-screen').style.display = 'none'; }
+    function showLoading(m) { document.getElementById('loading-screen').style.display='flex'; document.getElementById('loading-msg').innerText=m; }
+    function hideLoading() { document.getElementById('loading-screen').style.display='none'; }
 
     function createBoard() {
         const w = document.getElementById('game-wrapper');
