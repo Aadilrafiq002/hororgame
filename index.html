@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>100 Gates of Horror: Multiplayer</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        :root { --bg: #050505; --accent: #8b0000; --panel: #1a1a1a; }
+        body { background: var(--bg); color: #ddd; font-family: 'Courier New', monospace; display: flex; flex-direction: column; align-items: center; margin: 0; padding: 20px; }
+        
+        /* The Board */
+        #board { display: grid; grid-template-columns: repeat(10, 50px); gap: 2px; border: 5px solid #333; background: #222; margin-bottom: 20px; }
+        .cell { width: 50px; height: 50px; background: #111; display: flex; align-items: center; justify-content: center; font-size: 11px; position: relative; border: 1px solid #222; }
+        .cell:nth-child(even) { background: #0d0d0d; }
+        
+        /* Players */
+        .player { width: 15px; height: 15px; border-radius: 50%; position: absolute; z-index: 10; border: 1px solid white; transition: 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .p0 { background: #ff0000; box-shadow: 0 0 10px #ff0000; } /* Host */
+        .p1 { background: #00ffff; box-shadow: 0 0 10px #00ffff; } /* Guest */
+
+        /* UI Panels */
+        .container { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; }
+        .panel { background: var(--panel); padding: 15px; border-radius: 8px; border: 1px solid #444; width: 300px; }
+        #chat-box { height: 150px; overflow-y: auto; background: #000; border: 1px solid #333; margin: 10px 0; padding: 5px; font-size: 12px; }
+        input[type="text"] { background: #222; border: 1px solid #555; color: white; width: 70%; padding: 5px; }
+        
+        button { background: var(--accent); color: white; border: none; padding: 10px 15px; cursor: pointer; font-weight: bold; text-transform: uppercase; }
+        button:disabled { background: #333; cursor: not-allowed; }
+        button:hover:not(:disabled) { background: #ff0000; }
+
+        /* Jumpscare Overlay */
+        #overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 100; text-align: center; }
+        #scare-img { width: 300px; margin-bottom: 20px; border: 3px solid red; }
+
+        .status-msg { color: yellow; font-weight: bold; margin-bottom: 10px; }
+    </style>
+</head>
+<body>
+
+    <h1 style="color: var(--accent); margin: 5px;">100 GATES OF HORROR</h1>
+    <div id="status" class="status-msg">Initializing Dark Web Connection...</div>
+
+    <div id="board"></div>
+
+    <div class="container">
+        <div class="panel">
+            <div id="room-info" style="font-size: 11px; word-break: break-all; margin-bottom: 10px;"></div>
+            <div style="font-size: 40px; margin: 10px;" id="dice-display">🎲</div>
+            <button id="roll-btn" onclick="rollDice()" disabled>ROLL DICE</button>
+            <p id="game-log" style="font-size: 12px; color: #888; margin-top: 10px;"></p>
+        </div>
+
+        <div class="panel">
+            <strong>GHOST CHAT</strong>
+            <div id="chat-box"></div>
+            <input type="text" id="chat-input" placeholder="Type a message...">
+            <button onclick="sendChat()">SEND</button>
+        </div>
+    </div>
+
+    <div id="overlay">
+        <img id="scare-img" src="" alt="">
+        <h2 id="event-text" style="color: red; padding: 0 20px;"></h2>
+        <button onclick="closeOverlay()">I ACCEPT THE CURSE</button>
+    </div>
+
+<script>
+    let peer, conn;
+    let positions = [1, 1]; 
+    let turn = 0; 
+    let isHost = false;
+    let myRole = null; 
+
+    const statusEl = document.getElementById('status');
+    const rollBtn = document.getElementById('roll-btn');
+    const logEl = document.getElementById('game-log');
+    const chatBox = document.getElementById('chat-box');
+    const chatInput = document.getElementById('chat-input');
+    const diceDisplay = document.getElementById('dice-display');
+
+    const GHOST_GIFS = [
+        "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNGI4Njg1NjNiODhjZDJhZjE4NjhiNjM5ZWU5YjVkZGYzZWRjNjA1ZCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7TKqnN349PBUtGFO/giphy.gif",
+        "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNzh6Y2Q1M2N6Ynd6Ynd6Ynd6Ynd6Ynd6Ynd6Ynd6Ynd6JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/12RfP2odT4h4rK/giphy.gif"
+    ];
+
+    // Initialize Board
+    function createBoard() {
+        const board = document.getElementById('board');
+        for (let i = 0; i < 100; i++) {
+            let row = Math.floor(i / 10);
+            let col = i % 10;
+            let num = (row % 2 === 0) ? (100 - (row * 10 + col)) : (100 - (row * 10 + (9 - col)));
+            let cell = document.createElement('div');
+            cell.className = 'cell';
+            cell.id = 'cell-' + num;
+            cell.innerText = num;
+            board.appendChild(cell);
+        }
+    }
+
+    // Networking logic
+    const roomId = window.location.hash.replace('#', '');
+    peer = new Peer();
+
+    peer.on('open', (id) => {
+        if (roomId) {
+            isHost = false;
+            myRole = 1;
+            connectToHost(roomId);
+            statusEl.innerText = "Joining existing ritual...";
+        } else {
+            isHost = true;
+            myRole = 0;
+            const inviteLink = window.location.href + '#' + id;
+            document.getElementById('room-info').innerHTML = `<strong>INVITE LINK:</strong><br>${inviteLink}`;
+            statusEl.innerText = "Waiting for a victim (Player 2)...";
+        }
+    });
+
+    function connectToHost(id) {
+        conn = peer.connect(id);
+        setupConnection();
+    }
+
+    peer.on('connection', (c) => {
+        conn = c;
+        setupConnection();
+        if(isHost) {
+            statusEl.innerText = "A soul has joined! Your turn.";
+            rollBtn.disabled = false;
+        }
+    });
+
+    function setupConnection() {
+        conn.on('data', (data) => {
+            if (data.type === 'game') {
+                positions = data.positions;
+                turn = data.turn;
+                updateUI();
+                checkTurn();
+            } else if (data.type === 'chat') {
+                writeChat(data.role === 0 ? "P1" : "P2", data.msg);
+            }
+        });
+    }
+
+    // Game Logic
+    function rollDice() {
+        let roll = Math.floor(Math.random() * 6) + 1;
+        diceDisplay.innerText = roll;
+        
+        let newPos = positions[myRole] + roll;
+
+        // Bouncing logic
+        if (newPos > 100) {
+            newPos = 100 - (newPos - 100);
+            logEl.innerText = `Rolled ${roll}: Bounced back to ${newPos}`;
+        } else {
+            logEl.innerText = `Rolled ${roll}: Moved to ${newPos}`;
+        }
+
+        positions[myRole] = newPos;
+
+        if (newPos === 100) {
+            alert("YOU ESCAPED!");
+            sendData();
+            location.reload();
+            return;
+        }
+
+        // Surprise Gates
+        if (newPos > 1 && newPos < 100 && Math.random() > 0.4) {
+            triggerGate(newPos);
+        } else {
+            finishTurn();
+        }
+    }
+
+    function triggerGate(pos) {
+        const events = [
+            { t: "JUMPSCARE! Move back 7.", m: -7, horror: true },
+            { t: "A ghost pushes you forward 10 steps!", m: 10, horror: true },
+            { t: "TASK: Turn off your lights for one turn.", m: 0, horror: false },
+            { t: "THE VOID: Reset to cell 1.", m: -(pos-1), horror: true }
+        ];
+        let ev = events[Math.floor(Math.random() * events.length)];
+        
+        document.getElementById('event-text').innerText = ev.t;
+        document.getElementById('scare-img').src = ev.horror ? GHOST_GIFS[Math.floor(Math.random()*GHOST_GIFS.length)] : "";
+        document.getElementById('scare-img').style.display = ev.horror ? "block" : "none";
+        document.getElementById('overlay').style.display = "flex";
+
+        positions[myRole] = Math.max(1, Math.min(99, positions[myRole] + ev.m));
+    }
+
+    function closeOverlay() {
+        document.getElementById('overlay').style.display = "none";
+        finishTurn();
+    }
+
+    function finishTurn() {
+        turn = (myRole === 0) ? 1 : 0;
+        sendData();
+        updateUI();
+        checkTurn();
+    }
+
+    function sendData() {
+        if (conn) conn.send({ type: 'game', positions, turn });
+    }
+
+    function checkTurn() {
+        const isMyTurn = (turn === myRole);
+        rollBtn.disabled = !isMyTurn;
+        statusEl.innerText = isMyTurn ? "YOUR TURN" : "OPPONENT'S TURN...";
+        statusEl.style.color = isMyTurn ? "lime" : "yellow";
+    }
+
+    function updateUI() {
+        document.querySelectorAll('.player').forEach(p => p.remove());
+        positions.forEach((pos, i) => {
+            let cell = document.getElementById('cell-' + pos);
+            let dot = document.createElement('div');
+            dot.className = `player p${i}`;
+            dot.style.left = (i * 15) + 'px';
+            cell.appendChild(dot);
+        });
+    }
+
+    // Chat Logic
+    function sendChat() {
+        let msg = chatInput.value;
+        if (!msg || !conn) return;
+        conn.send({ type: 'chat', msg, role: myRole });
+        writeChat("Me", msg);
+        chatInput.value = "";
+    }
+
+    function writeChat(sender, msg) {
+        chatBox.innerHTML += `<div><strong>${sender}:</strong> ${msg}</div>`;
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    createBoard();
+    updateUI();
+</script>
+</body>
+</html>
