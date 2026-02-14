@@ -3,127 +3,111 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>100 GATES: THE RITUAL</title>
+    <title>100 GATES: FAST CONNECT</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg: #050505; --accent: #8b0000; --panel: #1a1a1a; }
-        * { box-sizing: border-box; outline: none; }
+        * { box-sizing: border-box; }
         body { 
             background: var(--bg); color: #ddd; font-family: 'Courier New', monospace; 
             margin: 0; padding: 5px; display: flex; flex-direction: column; align-items: center;
             overflow: hidden; touch-action: manipulation;
         }
-
-        /* Board Styling */
         #game-wrapper {
             width: 95vw; max-width: 450px; aspect-ratio: 1 / 1;
             border: 5px solid #222; display: flex; flex-wrap: wrap-reverse; background: #111;
-            box-shadow: 0 0 20px rgba(139, 0, 0, 0.3);
         }
         .cell { 
             width: 10%; height: 10%; border: 0.5px solid #222;
             display: flex; align-items: center; justify-content: center;
             font-size: 9px; position: relative; color: #444;
         }
-        .cell:nth-child(odd) { background: #0a0a0a; }
-
-        /* Player Tokens */
         .player { 
             width: 16px; height: 16px; border-radius: 50%; position: absolute; 
-            z-index: 10; border: 2px solid #fff; transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); 
+            z-index: 10; border: 2px solid #fff; transition: all 0.5s ease; 
         }
         .p0 { background: #ff3333; box-shadow: 0 0 10px #f00; }
         .p1 { background: #33ffff; box-shadow: 0 0 10px #0ff; }
         .p2 { background: #33ff33; box-shadow: 0 0 10px #0f0; }
         .p3 { background: #ffff33; box-shadow: 0 0 10px #ff0; }
-
-        /* UI Panels */
         .container { width: 95%; max-width: 450px; margin-top: 15px; }
         .panel { background: var(--panel); padding: 15px; border-radius: 8px; text-align: center; border: 1px solid #333; }
-        
         button { 
             background: var(--accent); color: white; border: none; padding: 18px; 
             cursor: pointer; font-weight: bold; width: 100%; border-radius: 5px; font-size: 20px;
-            box-shadow: 0 4px 0 #5a0000; transition: transform 0.1s;
         }
-        button:active { transform: translateY(3px); box-shadow: 0 1px 0 #5a0000; }
-        button:disabled { background: #222; color: #444; box-shadow: none; transform: none; }
-
-        /* Scare Overlay */
+        button:disabled { background: #222; color: #444; }
         #overlay { 
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
             background: #000; display: none; flex-direction: column; 
             justify-content: center; align-items: center; z-index: 3000; 
         }
-        #scare-img { max-width: 90%; height: auto; border: 4px solid red; filter: grayscale(50%) contrast(150%); }
-
         .setup-screen { 
             position: fixed; top:0; left:0; width:100%; height:100%; 
             background: #000; z-index: 4000; display: flex; flex-direction: column; 
             justify-content: center; align-items: center; padding: 20px; text-align: center;
         }
-        
-        #status { font-size: 14px; margin: 10px; text-transform: uppercase; letter-spacing: 2px; }
     </style>
 </head>
 <body>
 
     <div id="setup-screen" class="setup-screen">
-        <h1 style="color:var(--accent); font-size: 40px; margin-bottom: 5px;">100 GATES</h1>
-        <p style="color: #666; font-size: 12px; margin-bottom: 30px;">THE RECKONING</p>
-        
+        <h1 style="color:var(--accent); font-size: 40px;">100 GATES</h1>
         <div id="setup-controls">
-            <label style="color: #999; font-size: 12px;">MAX PLAYERS</label><br>
-            <select id="max-players-select" style="background: #111; color: white; padding: 10px; width: 200px; border: 1px solid #444; margin: 10px 0 20px;">
+            <select id="max-players-select" style="background:#111; color:white; padding:10px; margin:10px;">
                 <option value="2">2 PLAYERS</option>
                 <option value="3">3 PLAYERS</option>
                 <option value="4">4 PLAYERS</option>
             </select><br>
-            <button onclick="initHost()">OPEN GATE (HOST)</button>
-            <div style="margin: 20px; color: #444;">— OR —</div>
-            <p style="font-size: 11px; color: #666;">If you have a link, just open it.</p>
+            <button onclick="initHost()">HOST GAME</button>
         </div>
-
         <div id="waiting-area" style="display:none;">
-            <p style="color: yellow;">INVITE SOULS:</p>
-            <input type="text" id="share-url" style="width:100%; padding:12px; background:#111; color:red; border:1px solid #333; text-align:center;" readonly>
-            <p id="player-count-display" style="font-size: 24px; color:red; margin-top: 20px;"></p>
+            <p>COPY THIS LINK:</p>
+            <input type="text" id="share-url" style="width:100%; padding:10px; background:#111; color:red;" readonly>
+            <p id="player-count-display" style="font-size: 20px; color:red;"></p>
         </div>
     </div>
 
-    <div id="status">UNSTABLE CONNECTION...</div>
+    <div id="status">OFFLINE</div>
     <div id="game-wrapper"></div>
 
     <div class="container">
         <div class="panel">
-            <div id="dice-val" style="font-size: 50px; margin-bottom: 10px; filter: drop-shadow(0 0 10px red);">🎲</div>
+            <div id="dice-val" style="font-size: 40px;">🎲</div>
             <button id="roll-btn" onclick="handleRoll()" disabled>ROLL DICE</button>
-            <p id="my-id-display" style="font-size: 11px; margin-top: 15px; color: #555;"></p>
         </div>
     </div>
 
     <div id="overlay">
-        <img id="scare-img" src="https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNGI4Njg1NjNiODhjZDJhZjE4NjhiNjM5ZWU5YjVkZGYzZWRjNjA1ZCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7TKqnN349PBUtGFO/giphy.gif">
-        <h2 id="event-text" style="color: red; padding: 20px;"></h2>
-        <button onclick="closeOverlay()" style="width: auto; padding: 10px 40px;">CONTINUE</button>
+        <img id="scare-img" src="https://media.giphy.com/media/3o7TKqnN349PBUtGFO/giphy.gif" style="width:80%">
+        <h2 id="event-text" style="color:red"></h2>
+        <button onclick="closeOverlay()">CONTINUE</button>
     </div>
 
-    <audio id="bg-music" loop preload="auto"><source src="horrorsound.mp3" type="audio/mpeg"></audio>
-    <audio id="scare-snd" preload="auto"><source src="jump.mp3" type="audio/mpeg"></audio>
-    <audio id="dice-snd" preload="auto"><source src="dice.mp3" type="audio/mpeg"></audio>
-
-<script>
+    <script>
     let peer, conns = [];
     let positions = [1, 1, 1, 1], turn = 0, isHost = false, myRole = 0, maxPlayers = 2;
+    
+    // Lazy Audio Setup
+    let bgSnd, jumpSnd, diceSnd;
 
-    // Detect if Guest via URL hash
+    function loadAudio() {
+        bgSnd = new Audio('horrorsound.mp3');
+        bgSnd.loop = true;
+        bgSnd.volume = 0.2;
+        
+        jumpSnd = new Audio('jump.mp3');
+        diceSnd = new Audio('dice.mp3');
+        
+        bgSnd.play().catch(() => console.log("Audio waiting for interaction"));
+    }
+
     const hash = window.location.hash.replace('#', '');
     if (hash) {
-        document.getElementById('setup-controls').innerHTML = "<button onclick='initGuest()'>ENTER THE RITUAL</button>";
+        document.getElementById('setup-controls').innerHTML = "<button onclick='initGuest()'>JOIN GAME</button>";
     }
 
     function initHost() {
-        unlockAudio();
         isHost = true;
         maxPlayers = parseInt(document.getElementById('max-players-select').value);
         peer = new Peer();
@@ -132,6 +116,7 @@
             document.getElementById('waiting-area').style.display = 'block';
             document.getElementById('share-url').value = window.location.href + '#' + id;
             document.getElementById('player-count-display').innerText = `SOULS: 1 / ${maxPlayers}`;
+            loadAudio(); // Load audio ONLY after peer ID is ready
         });
         peer.on('connection', (c) => {
             conns.push(c);
@@ -142,19 +127,12 @@
     }
 
     function initGuest() {
-        unlockAudio();
         peer = new Peer();
         peer.on('open', () => {
             const conn = peer.connect(hash);
             setupConn(conn);
+            loadAudio();
         });
-        document.getElementById('setup-controls').innerHTML = "<p style='color:red'>CONNECTING TO HOST...</p>";
-    }
-
-    function unlockAudio() {
-        const bg = document.getElementById('bg-music');
-        bg.volume = 0.1;
-        bg.play().catch(() => {});
     }
 
     function createBoard() {
@@ -190,38 +168,29 @@
     }
 
     function handleRoll() {
-        const diceSnd = document.getElementById('dice-snd');
-        diceSnd.currentTime = 0;
-        diceSnd.play();
-
+        if(diceSnd) diceSnd.play();
         const roll = Math.floor(Math.random() * 6) + 1;
         document.getElementById('dice-val').innerText = roll;
-        
         let nextPos = positions[myRole] + roll;
         if (nextPos > 100) nextPos = 100 - (nextPos - 100);
         positions[myRole] = nextPos;
         updateUI();
 
-        // Music Intensity increase logic
-        const bg = document.getElementById('bg-music');
-        if(nextPos > 80) bg.volume = 0.5;
-
-        if (nextPos === 100) { alert("YOU ESCAPED THE GATES!"); location.reload(); }
-        else if (nextPos > 1 && Math.random() > 0.6) setTimeout(triggerSurprise, 700);
+        if (nextPos === 100) { alert("ESCUTED!"); location.reload(); }
+        else if (nextPos > 1 && Math.random() > 0.6) setTimeout(triggerSurprise, 500);
         else finishTurn();
     }
 
     function triggerSurprise() {
         const surprises = [
-            {t: "A COLD HAND PUSHES YOU. (Back 5 steps)", m: -5},
-            {t: "DARK ENERGY BOLT! (Forward 10 steps)", m: 10},
-            {t: "THE GATES REJECT YOU. (Reset to 1)", abs: 1}
+            {t: "BACK 7 STEPS!", m: -7},
+            {t: "FORWARD 10 STEPS!", m: 10},
+            {t: "BACK TO 1!", abs: 1}
         ];
         const s = surprises[Math.floor(Math.random() * surprises.length)];
         document.getElementById('event-text').innerText = s.t;
         document.getElementById('overlay').style.display = 'flex';
-        document.getElementById('scare-snd').play();
-        if (navigator.vibrate) navigator.vibrate([100, 50, 100, 50, 400]);
+        if(jumpSnd) jumpSnd.play();
 
         if (s.abs) positions[myRole] = s.abs;
         else positions[myRole] = Math.max(1, Math.min(99, positions[myRole] + s.m));
@@ -237,19 +206,14 @@
         const payload = {type: 'game', positions, turn};
         if (isHost) conns.forEach(c => c.send(payload));
         else {
-            // Note: In real production we'd keep the initial connection open, 
-            // but for simple PeerJS logic this ensures delivery.
             const hostConn = peer.connect(hash);
             hostConn.on('open', () => hostConn.send(payload));
         }
     }
 
     function updateUI() {
-        document.getElementById('status').innerText = (turn === myRole) ? ">> YOUR TURN <<" : `P${turn+1} IS MOVING...`;
-        document.getElementById('status').style.color = (turn === myRole) ? "red" : "#666";
+        document.getElementById('status').innerText = (turn === myRole) ? "YOUR TURN" : "WAITING...";
         document.getElementById('roll-btn').disabled = (turn !== myRole);
-        document.getElementById('my-id-display').innerText = `YOU ARE PLAYER ${myRole + 1}`;
-        
         document.querySelectorAll('.player').forEach(p => p.remove());
         positions.slice(0, maxPlayers).forEach((pos, i) => {
             const cell = document.getElementById('cell-' + pos);
