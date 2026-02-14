@@ -27,7 +27,7 @@
         .btn-active { background: #008000; color: white; } .btn-wait { background: #333; color: #666; }
         
         #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 3000; }
-        #inv-display { font-size: 12px; color: gold; margin: 5px 0; }
+        #inv-display { font-size: 14px; color: gold; margin: 5px 0; font-weight: bold; }
 
         /* Emoji Keyboard */
         #chat-window { position: fixed; bottom: 0; left: 0; width: 100%; background: #111; z-index: 2000; border-top: 2px solid var(--accent); }
@@ -52,7 +52,7 @@
     </div>
 
     <div id="ritual-log" style="font-size: 12px; height: 20px; color: #888;">...</div>
-    <div id="inv-display">Inventory: Passes (0)</div>
+    <div id="inv-display">CARDS: 0</div>
     
     <div id="game-container"></div>
     <div class="panel" style="margin-bottom: 120px;"><button id="roll-btn" class="btn-wait" onclick="playTurn()" disabled>ROLL DICE</button></div>
@@ -74,7 +74,7 @@
     let myRole = -1, isHost = false, turn = 0, positions = [1,1,1,1], maxPlayers = 2;
     let personalTurnCounter = 0, inventory = { passes: 0 };
 
-    // AUDIO ENGINE - The original robust way
+    // HIGH PERFORMANCE AUDIO
     const sounds = { 
         dice: new Audio('dice.mp3'), 
         jump: new Audio('jump.mp3'),
@@ -83,12 +83,12 @@
 
     function playSound(n) {
         if (!sounds[n]) return;
-        const s = sounds[n].cloneNode(); // Allows overlapping sounds
-        s.play().catch(e => console.log("Audio play blocked"));
+        const s = sounds[n].cloneNode(); 
+        s.play().catch(e => {});
     }
 
     function unlockAudio() {
-        playSound('dice'); // Initial unlock
+        playSound('dice');
         const rID = window.location.hash.substring(1);
         if (rID) startAsGuest(rID); else showHostUI();
     }
@@ -103,7 +103,7 @@
     function showHostUI() {
         document.getElementById('ui-box').innerHTML = `
             <select id="p-count" style="width:100%; padding:10px;"><option value="2">2 Players</option><option value="3">3 Players</option><option value="4">4 Players</option></select>
-            <button onclick="startAsHost()" style="background:red; color:white; padding:10px; width:100%; margin-top:10px; border:none;">HOST GAME</button>
+            <button onclick="startAsHost()" style="background:red; color:white; padding:10px; width:100%; margin-top:10px; border:none;">HOST</button>
         `;
     }
 
@@ -112,7 +112,7 @@
         peer = new Peer();
         peer.on('open', (id) => { 
             myRole = 0; const link = window.location.origin + window.location.pathname + '#' + id;
-            document.getElementById('ui-box').innerHTML = `<input type="text" value="${link}" id="lInp" readonly style="width:100%;"><button onclick="copyL()">COPY LINK</button>`;
+            document.getElementById('ui-box').innerHTML = `<input type="text" value="${link}" id="lInp" readonly style="width:100%;"><button onclick="copyL()">COPY</button>`;
         });
         peer.on('connection', (c) => { 
             guestConns.push(c); 
@@ -123,10 +123,7 @@
 
     function startAsGuest(id) { 
         peer = new Peer(); 
-        peer.on('open', () => { 
-            hostConn = peer.connect(id); 
-            hostConn.on('data', d => handleData(d)); 
-        }); 
+        peer.on('open', () => { hostConn = peer.connect(id); hostConn.on('data', d => handleData(d)); }); 
     }
 
     function playTurn() {
@@ -146,12 +143,12 @@
 
         if (ev.isItem) {
             inventory.passes++; updateInventoryUI();
-            overlay.innerHTML = `<img src="f1.jpg" style="width:250px;"><h2>LOOT</h2><p>${ev.t}</p><button onclick="closeOverlaySync('P${myRole+1} found a card!')" style="background:white; padding:15px;">ADD TO BAG</button>`;
+            overlay.innerHTML = `<img src="f1.jpg" style="width:250px;"><h2>LOOT</h2><p>${ev.t}</p><button onclick="closeOverlaySync('P${myRole+1} found a card!')" style="background:white; padding:15px; border:none;">COLLECT</button>`;
         } else if (!ev.isTrap) {
             positions[myRole] += ev.m;
-            overlay.innerHTML = `<img src="f1.jpg" style="width:250px;"><h2>LUCKY</h2><p>${ev.t}</p><button onclick="closeOverlaySync('P${myRole+1} moved forward!')" style="background:white; padding:15px;">OK</button>`;
+            overlay.innerHTML = `<img src="f1.jpg" style="width:250px;"><h2>LUCKY</h2><p>${ev.t}</p><button onclick="closeOverlaySync('P${myRole+1} moved forward!')" style="background:white; padding:15px; border:none;">NICE</button>`;
         } else {
-            playSound('jump'); // Horror trap sound
+            playSound('jump');
             let passBtn = "";
             if (inventory.passes > 0) {
                 for (let i = 0; i < maxPlayers; i++) { if (i !== myRole) passBtn += `<button onclick="usePass(${i}, ${ev.m})" style="background:purple; color:white; padding:10px; margin:5px;">PASS TO P${i+1}</button>`; }
@@ -159,7 +156,7 @@
             overlay.innerHTML = `
                 <img src="h1.jpg" style="width:250px; border:3px solid red;">
                 <h2 style="color:red;">CURSED</h2><p>${ev.t}</p>
-                <button onclick="takePunishment(${ev.m})" style="background:black; color:white; border:1px solid white; padding:10px; margin-bottom:10px;">I ACCEPT</button>
+                <button onclick="takePunishment(${ev.m})" style="background:black; color:white; border:1px solid white; padding:10px; margin-bottom:10px;">ACCEPT PUNISHMENT</button>
                 ${passBtn}
             `;
         }
@@ -168,7 +165,7 @@
     function usePass(targetIdx, amount) {
         inventory.passes--; updateInventoryUI();
         document.getElementById('overlay').style.display = "none";
-        const d = { type: 'sabotage', from: myRole, to: targetIdx, move: amount, msg: `P${myRole+1} SABOTAGED P${targetIdx+1}!` };
+        const d = { type: 'sabotage', from: myRole, to: targetIdx, move: amount, msg: `P${myRole+1} PASSED CURSE TO P${targetIdx+1}!` };
         if (isHost) broadcastSabotage(d); else hostConn.send(d);
     }
 
@@ -180,17 +177,16 @@
 
     function sendEmoji(e) {
         const m = { type: 'chat', sender: `PLAYER ${myRole+1}`, text: e };
-        if(isHost) {
-            handleData(m); // Local
-            guestConns.forEach(c => c.send(m)); // Remote
-        } else {
-            hostConn.send(m); // To Host
-        }
+        if(isHost) handleData(m); else hostConn.send(m);
     }
 
     function handleData(d) {
+        // HOST RELAY LOGIC (Ensures everyone sees emojis)
+        if(isHost && d.type === 'chat' && d.sender !== `PLAYER ${myRole+1}`) {
+            guestConns.forEach(c => c.send(d));
+        }
+
         if(d.type === 'chat') {
-            if(isHost) guestConns.forEach(c => c.send(d)); // Relays message to others
             const flash = document.getElementById('emoji-flash');
             document.getElementById('flash-content').innerText = d.text;
             document.getElementById('flash-user').innerText = d.sender;
@@ -235,7 +231,7 @@
     function updateUI() {
         const isTurn = (turn === myRole);
         const btn = document.getElementById('roll-btn');
-        btn.disabled = !isTurn; btn.innerText = isTurn ? "ROLL" : `WAITING (P${turn+1})`;
+        btn.disabled = !isTurn; btn.innerText = isTurn ? "ROLL" : `P${turn+1}'S TURN`;
         btn.className = isTurn ? "btn-active" : "btn-wait";
         document.querySelectorAll('.player').forEach(p => p.remove());
         positions.slice(0, maxPlayers).forEach((pos, i) => {
@@ -244,7 +240,7 @@
         });
     }
 
-    function updateInventoryUI() { document.getElementById('inv-display').innerText = `Inventory: Passes (${inventory.passes})`; }
+    function updateInventoryUI() { document.getElementById('inv-display').innerText = `CARDS: ${inventory.passes}`; }
     function closeOverlaySync(msg) { document.getElementById('overlay').style.display = "none"; sync(msg); }
     function copyL() { const i = document.getElementById('lInp'); i.select(); navigator.clipboard.writeText(i.value); alert("Link Copied!"); }
     function sendInit() { guestConns.forEach((c, i) => c.send({ type: 'init', role: i+1, max: maxPlayers, pos: positions, turn: turn })); document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
