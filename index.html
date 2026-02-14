@@ -9,27 +9,27 @@
         :root { --bg: #050505; --accent: #bc0000; --panel: #1a1a1a; }
         body { background: var(--bg); color: #cfcfcf; font-family: 'Courier New', monospace; margin: 0; text-align: center; overflow-x: hidden; touch-action: manipulation; }
         
-        /* Layout Fixes */
-        #game-container { display: grid; grid-template-columns: repeat(10, 1fr); width: 90vw; max-width: 380px; aspect-ratio: 1/1; margin: 5px auto; border: 4px solid #333; background: #222; }
+        /* Board Layout */
+        #game-container { display: grid; grid-template-columns: repeat(10, 1fr); width: 95vw; max-width: 400px; aspect-ratio: 1/1; margin: 5px auto; border: 4px solid #333; background: #222; }
         .cell { border: 0.1px solid #222; display: flex; align-items: center; justify-content: center; font-size: 10px; position: relative; }
-        .player { width: 16px; height: 16px; border-radius: 50%; position: absolute; border: 2px solid #000; transition: 0.5s; z-index: 10; }
+        .player { width: 18px; height: 18px; border-radius: 50%; position: absolute; border: 2px solid #000; transition: 0.5s; z-index: 10; }
         .p0 { background: #ff3333; } .p1 { background: #33aaff; } .p2 { background: #33ff77; } .p3 { background: #f0ff33; }
         
-        /* Popups & Overlays */
-        #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 3000; padding: 20px; }
-        .event-card { background: #111; border: 2px solid var(--accent); padding: 15px; border-radius: 15px; width: 280px; }
-        .event-img { width: 100%; height: 200px; object-fit: cover; border-radius: 10px; margin-bottom: 10px; border: 1px solid #444; }
+        /* LARGE EVENT OVERLAY (Restored Size) */
+        #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 3000; }
+        .event-card { width: 90%; max-width: 350px; text-align: center; }
+        .event-img { width: 100%; height: auto; max-height: 350px; object-fit: cover; border: 3px solid var(--accent); border-radius: 5px; margin-bottom: 15px; }
 
-        /* Emote Keyboard Fixed for PC & Mobile */
-        #chat-window { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 500px; background: #111; z-index: 2000; border-top: 2px solid var(--accent); padding-bottom:env(safe-area-inset-bottom); }
-        .emoji-grid { display: grid; grid-template-columns: repeat(5, 1fr); padding: 10px; gap: 8px; }
-        .emoji-grid button { font-size: 24px; padding: 12px; background: #222; color: white; border: 1px solid #333; border-radius: 8px; cursor: pointer; transition: 0.2s; }
-        .emoji-grid button:hover { background: #333; border-color: var(--accent); }
+        /* Emote Keyboard Fix (PC Centering) */
+        #chat-window { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 450px; background: #111; z-index: 2000; border-top: 2px solid var(--accent); }
+        .emoji-grid { display: grid; grid-template-columns: repeat(5, 1fr); padding: 10px; gap: 5px; }
+        .emoji-grid button { font-size: 24px; padding: 12px; background: #222; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .emoji-grid button:hover { background: #444; }
 
-        /* End Screen */
+        /* End Screen Text */
         #end-screen { position: fixed; inset: 0; background: #000; display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
 
-        .panel { background: var(--panel); padding: 8px; border-radius: 10px; width: 90%; max-width: 400px; border: 1px solid var(--accent); margin: 5px auto; }
+        .panel { background: var(--panel); padding: 10px; border-radius: 10px; width: 90%; max-width: 400px; border: 1px solid var(--accent); margin: 5px auto; }
         #roll-btn { padding: 15px; width: 100%; border-radius: 5px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; }
         .btn-active { background: #008000; color: white; } 
         .btn-wait { background: #333; color: #666; }
@@ -39,23 +39,23 @@
 <body>
 
     <div id="end-screen">
-        <h1 id="end-title" style="font-size:40px;"></h1>
-        <p id="end-msg" style="font-size:20px; color:#aaa;"></p>
-        <button onclick="location.reload()" style="padding:15px 30px; font-weight:bold; cursor:pointer;">RESTART</button>
+        <h1 id="end-title" style="font-size:45px; margin:0;"></h1>
+        <p id="end-msg" style="font-size:22px; padding:20px;"></p>
+        <button onclick="location.reload()" style="padding:15px 40px; font-weight:bold; cursor:pointer; background:white; border:none;">RESTART RITUAL</button>
     </div>
 
-    <div id="emoji-flash"><p id="flash-content" style="font-size:100px;"></p><p id="flash-user" style="color:red;"></p></div>
+    <div id="emoji-flash"><p id="flash-content" style="font-size:120px; margin:0;"></p><p id="flash-user" style="color:red; font-size:20px;"></p></div>
 
     <div id="setup-screen" style="position:fixed; inset:0; background:#000; z-index:8000; display:flex; flex-direction:column; justify-content:center; align-items:center;">
-        <h1 style="color:var(--accent);">100 GATES</h1>
-        <div id="ui-box" class="panel"><button onclick="unlockAudio()" style="width:100%; padding:15px; font-weight:bold; cursor:pointer;">START GAME</button></div>
+        <h1 style="color:var(--accent); font-size:40px;">100 GATES</h1>
+        <div id="ui-box" class="panel"><button onclick="unlockAudio()" style="width:100%; padding:20px; font-weight:bold; cursor:pointer;">START</button></div>
     </div>
 
-    <div id="ritual-log" style="font-size: 12px; height: 20px; margin-top:10px;">Waiting for players...</div>
-    <div id="inv-display" style="color:gold; font-weight:bold;">CARDS: 0</div>
+    <div id="ritual-log" style="font-size: 14px; height: 25px; margin-top:10px; color:#888;">...</div>
+    <div id="inv-display" style="color:gold; font-weight:bold; font-size:18px;">CARDS: 0</div>
     
     <div id="game-container"></div>
-    <div class="panel" style="margin-bottom: 140px;"><button id="roll-btn" class="btn-wait" onclick="playTurn()" disabled>WAITING...</button></div>
+    <div class="panel" style="margin-bottom: 120px;"><button id="roll-btn" class="btn-wait" onclick="playTurn()" disabled>WAITING...</button></div>
 
     <div id="chat-window">
         <div class="emoji-grid">
@@ -85,8 +85,10 @@
 
     function showHostUI() {
         document.getElementById('ui-box').innerHTML = `
-            <select id="p-count" style="width:100%; padding:10px;"><option value="2">2 Players</option><option value="3">3 Players</option><option value="4">4 Players</option></select>
-            <button onclick="startAsHost()" style="background:red; color:white; width:100%; margin-top:10px; padding:10px; border:none; cursor:pointer;">HOST</button>`;
+            <select id="p-count" style="width:100%; padding:15px; font-size:16px;">
+                <option value="2">2 Players</option><option value="3">3 Players</option><option value="4">4 Players</option>
+            </select>
+            <button onclick="startAsHost()" style="background:red; color:white; width:100%; margin-top:15px; padding:15px; border:none; font-weight:bold; cursor:pointer;">HOST GAME</button>`;
     }
 
     function startAsHost() {
@@ -94,7 +96,7 @@
         peer = new Peer();
         peer.on('open', (id) => { 
             myRole = 0; const link = window.location.origin + window.location.pathname + '#' + id;
-            document.getElementById('ui-box').innerHTML = `<p style="font-size:10px">SEND THIS LINK:</p><input type="text" value="${link}" id="lInp" readonly style="width:100%;"><button onclick="copyL()" style="width:100%; padding:10px; margin-top:5px;">COPY LINK</button>`;
+            document.getElementById('ui-box').innerHTML = `<p>SHARE LINK:</p><input type="text" value="${link}" id="lInp" readonly style="width:100%; padding:10px; border:none;"><button onclick="copyL()" style="width:100%; padding:10px; margin-top:10px; cursor:pointer;">COPY</button>`;
         });
         peer.on('connection', (c) => { 
             guestConns.push(c); 
@@ -115,7 +117,7 @@
         personalTurnCounter++;
         if (positions[myRole] >= 100) { 
             positions[myRole] = 100;
-            sync(`PLAYER ${myRole+1} WON!`, myRole); 
+            sync(`P${myRole+1} REACHED THE END!`, myRole); 
             return; 
         }
         
@@ -127,7 +129,6 @@
         }
     }
 
-    // IMAGE SYSTEM FIXED HERE
     function triggerResult() {
         const overlay = document.getElementById('overlay');
         overlay.style.display = "flex";
@@ -139,20 +140,22 @@
             overlay.innerHTML = `
                 <div class="event-card">
                     <img src="f${randomImgNum}.jpg" class="event-img">
-                    <h2 style="color:gold;">LOOT</h2><p>Found a Sabotage Card!</p>
-                    <button onclick="closeOverlaySync('P${myRole+1} got loot')" style="width:100%; padding:10px; cursor:pointer;">OK</button>
+                    <h2 style="color:gold; font-size:30px; margin:5px;">LOOT</h2>
+                    <p style="font-size:18px;">Found a Sabotage Card!</p>
+                    <button onclick="closeOverlaySync('P${myRole+1} got loot')" style="width:100%; padding:15px; font-weight:bold; cursor:pointer;">OK</button>
                 </div>`;
         } else {
             playSound('jump');
             let passButtons = "";
             if (inventory.passes > 0) {
-                for (let i=0; i<maxPlayers; i++) if(i!==myRole) passButtons += `<button onclick="usePass(${i})" style="background:purple; color:white; margin:5px; padding:10px; border:none; border-radius:5px; cursor:pointer;">PASS TO P${i+1}</button>`;
+                for (let i=0; i<maxPlayers; i++) if(i!==myRole) passButtons += `<button onclick="usePass(${i})" style="background:purple; color:white; margin:5px; padding:12px; width:100%; border:none; border-radius:5px; font-weight:bold; cursor:pointer;">PASS TO PLAYER ${i+1}</button>`;
             }
             overlay.innerHTML = `
                 <div class="event-card">
                     <img src="h${randomImgNum}.jpg" class="event-img">
-                    <h2 style="color:red;">TRAP!</h2><p>-10 Steps</p>
-                    <button onclick="takePunishment()" style="width:100%; padding:10px; margin-bottom:10px; cursor:pointer;">ACCEPT</button>
+                    <h2 style="color:red; font-size:30px; margin:5px;">TRAP!</h2>
+                    <p style="font-size:18px; color:white;">-10 Steps Back!</p>
+                    <button onclick="takePunishment()" style="width:100%; padding:15px; margin-bottom:10px; font-weight:bold; cursor:pointer;">ACCEPT FATE</button>
                     ${passButtons}
                 </div>`;
         }
@@ -170,24 +173,21 @@
         positions[myRole] = Math.max(1, positions[myRole]-10);
         document.getElementById('overlay').style.display = "none";
         playSound('noob');
-        sync(`P${myRole+1} hit a trap!`);
-    }
-
-    function sendEmoji(e) {
-        const m = { type: 'chat', sender: `P${myRole+1}`, text: e };
-        if (isHost) broadcast(m); else hostConn.send(m);
+        sync(`P${myRole+1} fell into a trap!`);
     }
 
     function showEnd(winIdx) {
         const screen = document.getElementById('end-screen');
         screen.style.display = "flex";
         if(winIdx === myRole) {
-            document.getElementById('end-title').innerText = "🏆 CHAMPION!";
-            document.getElementById('end-msg').innerText = "You escaped the 100 Gates!";
+            document.getElementById('end-title').innerText = "🏆 WINNER!";
+            document.getElementById('end-title').style.color = "gold";
+            document.getElementById('end-msg').innerText = "You escaped the 100 Gates like a pro.";
         } else {
             playSound('noob');
-            document.getElementById('end-title').innerText = "💀 NOOB ALERT!";
-            document.getElementById('end-msg').innerText = "You are stuck in the void forever.";
+            document.getElementById('end-title').innerText = "💀 LOSER!";
+            document.getElementById('end-title').style.color = "red";
+            document.getElementById('end-msg').innerText = "NOOB ALERT! You are lost in the void.";
         }
     }
 
@@ -227,7 +227,7 @@
         const active = (turn === myRole);
         const btn = document.getElementById('roll-btn');
         btn.disabled = !active;
-        btn.innerText = active ? "YOUR TURN: ROLL" : `WAITING FOR P${turn+1}`;
+        btn.innerText = active ? "ROLL DICE" : `P${turn+1}'S TURN`;
         btn.className = active ? "btn-active" : "btn-wait";
         document.getElementById('inv-display').innerText = `CARDS: ${inventory.passes}`;
         
@@ -240,6 +240,11 @@
                 cell.appendChild(dot);
             }
         });
+    }
+
+    function sendEmoji(e) {
+        const m = { type: 'chat', sender: `P${myRole+1}`, text: e };
+        if (isHost) broadcast(m); else hostConn.send(m);
     }
 
     function closeOverlaySync(m) { document.getElementById('overlay').style.display="none"; sync(m); }
