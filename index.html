@@ -37,10 +37,7 @@
 
     <div id="setup-screen" class="setup-screen">
         <h1 style="color:var(--accent); font-size: 40px;">100 GATES</h1>
-        
-        <div id="ui-box" class="panel">
-            <p>Preparing Ritual...</p>
-        </div>
+        <div id="ui-box" class="panel"><p>Preparing Ritual...</p></div>
     </div>
 
     <div id="status" style="padding:5px; color:orange; font-size: 12px;">WAITING...</div>
@@ -54,16 +51,11 @@
     let peer, conns = [], myRole = 0, isHost = false, turn = 0, positions = [1,1,1,1], maxPlayers = 2;
     let sounds = {};
 
-    // 1. IMPROVED AUTO-DETECTION
     window.onload = () => {
         createBoard();
-        const roomID = window.location.hash.substring(1); // Get ID after #
-        
-        if (roomID) {
-            startAsGuest(roomID);
-        } else {
-            showHostUI();
-        }
+        const roomID = window.location.hash.substring(1);
+        if (roomID) { startAsGuest(roomID); } 
+        else { showHostUI(); }
     };
 
     function showHostUI() {
@@ -74,17 +66,14 @@
                 <option value="3">3 Players</option>
                 <option value="4">4 Players</option>
             </select>
-            <button onclick="startAsHost()">HOST RITUAL</button>
-        `;
+            <button onclick="startAsHost()">HOST RITUAL</button>`;
     }
 
     function initSounds() {
         try {
-            sounds.bg = new Audio('horrorsound.mp3'); sounds.bg.loop = true; sounds.bg.volume = 0.2;
             sounds.jump = new Audio('jump.mp3');
             sounds.dice = new Audio('dice.mp3');
-            sounds.bg.play().catch(() => {});
-        } catch(e) {}
+        } catch(e) { console.log("Sound files missing"); }
     }
 
     function startAsHost() {
@@ -92,7 +81,6 @@
         maxPlayers = parseInt(document.getElementById('p-count').value);
         showLoading("SUMMONING ID...");
         initSounds();
-
         peer = new Peer({ config: {'iceServers': [{ url: 'stun:stun.l.google.com:19302' }]}});
         
         peer.on('open', (id) => {
@@ -102,8 +90,7 @@
                 <p style="color:yellow">SHARE THIS LINK:</p>
                 <input type="text" value="${inviteLink}" id="linkInput" style="width:100%; padding:10px; background:#000; color:red; border:1px solid #444;" readonly>
                 <button onclick="copyLink()" style="padding:10px; margin-top:5px; font-size:14px;">COPY LINK</button>
-                <p id="soul-count" style="font-size:20px; color:red; margin-top:15px;">Souls Joined: 1 / ${maxPlayers}</p>
-            `;
+                <p id="soul-count" style="font-size:20px; color:red; margin-top:15px;">Souls Joined: 1 / ${maxPlayers}</p>`;
         });
 
         peer.on('connection', (c) => {
@@ -124,15 +111,12 @@
         showLoading("JOINING RITUAL...");
         initSounds();
         peer = new Peer({ config: {'iceServers': [{ url: 'stun:stun.l.google.com:19302' }]}});
-        
         peer.on('open', () => {
             const c = peer.connect(id, {reliable: true});
             setupConn(c);
         });
-
-        peer.on('error', (err) => {
-            console.error(err);
-            alert("Host is not found. Creating new ritual instead.");
+        peer.on('error', () => {
+            alert("Host not found. Starting new session.");
             window.location.hash = "";
             location.reload();
         });
@@ -148,6 +132,7 @@
             }
             if (data.type === 'sync') {
                 positions = data.pos; turn = data.turn;
+                if(data.scare && sounds.jump) sounds.jump.play();
                 updateUI();
             }
         });
@@ -160,15 +145,17 @@
         positions[myRole] += roll;
         if(positions[myRole] >= 100) positions[myRole] = 100;
         
-        turn = (turn + 1) % maxPlayers;
-        sync();
-        updateUI();
+        let triggerScare = (Math.random() > 0.8); // 20% chance of jump sound for all
+        if(triggerScare && sounds.jump) sounds.jump.play();
 
+        turn = (turn + 1) % maxPlayers;
+        sync(triggerScare);
+        updateUI();
         if(positions[myRole] === 100) { alert("YOU ESCAPED!"); location.reload(); }
     }
 
-    function sync() {
-        const d = {type:'sync', pos: positions, turn: turn};
+    function sync(scare = false) {
+        const d = {type:'sync', pos: positions, turn: turn, scare: scare};
         if(isHost) conns.forEach(c => c.send(d));
         else {
             const hostID = window.location.hash.substring(1);
@@ -178,7 +165,7 @@
     }
 
     function updateUI() {
-        document.getElementById('status').innerText = (turn === myRole) ? "YOUR TURN" : "WAITING FOR OTHERS...";
+        document.getElementById('status').innerText = (turn === myRole) ? "YOUR TURN" : "WAITING...";
         document.getElementById('roll-btn').disabled = (turn !== myRole);
         document.querySelectorAll('.player').forEach(p => p.remove());
         positions.slice(0, maxPlayers).forEach((p, i) => {
@@ -194,9 +181,8 @@
     function copyLink() {
         const copyText = document.getElementById("linkInput");
         copyText.select();
-        copyText.setSelectionRange(0, 99999);
         navigator.clipboard.writeText(copyText.value);
-        alert("Link Copied! Send it to your friend.");
+        alert("Link Copied!");
     }
 
     function showLoading(m) { document.getElementById('loading-screen').style.display = 'flex'; document.getElementById('loading-msg').innerText = m; }
