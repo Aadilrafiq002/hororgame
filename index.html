@@ -3,28 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>100 GATES: FINAL STAND</title>
+    <title>100 GATES: SABOTAGE & VOID</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg: #050505; --accent: #bc0000; --panel: #1a1a1a; }
         body { background: var(--bg); color: #cfcfcf; font-family: 'Courier New', monospace; margin: 0; text-align: center; overflow-x: hidden; touch-action: manipulation; }
+        
+        /* Board Layout */
         #game-container { display: grid; grid-template-columns: repeat(10, 1fr); width: 95vw; max-width: 400px; aspect-ratio: 1/1; margin: 5px auto; border: 5px solid #333; background: #222; }
         .cell { border: 0.1px solid #222; display: flex; align-items: center; justify-content: center; font-size: 10px; position: relative; background: #121212; }
         .player { width: 18px; height: 18px; border-radius: 50%; position: absolute; border: 2px solid #000; transition: 0.5s; z-index: 10; }
         .p0 { background: #ff3333; } .p1 { background: #33aaff; } .p2 { background: #33ff77; } .p3 { background: #f0ff33; }
+        
+        /* Ritual Log */
         #ritual-log { background: #000; color: #888; padding: 8px; font-size: 12px; height: 35px; border-bottom: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; }
+
+        /* Overlays */
         #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 5000; }
         .event-card { width: 90%; max-width: 350px; text-align: center; }
         #res-img { width: 100%; height: auto; max-height: 350px; object-fit: cover; border: 4px solid var(--accent); border-radius: 5px; margin-bottom: 10px; }
+        
+        #finish-screen { position: fixed; inset: 0; background: #000; display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
+
+        /* UI */
         #chat-window { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 450px; background: #111; z-index: 2000; border-top: 2px solid var(--accent); }
         .emoji-grid { display: grid; grid-template-columns: repeat(5, 1fr); padding: 10px; gap: 5px; }
         .emoji-grid button { font-size: 24px; padding: 12px; background: #222; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        
         .panel { background: var(--panel); padding: 10px; border-radius: 10px; width: 90%; max-width: 400px; border: 1px solid var(--accent); margin: 5px auto; }
         #roll-btn { padding: 15px; width: 100%; border-radius: 5px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; }
         .btn-active { background: #008000; color: white; box-shadow: 0 0 15px #00ff00; }
         .btn-wait { background: #333; color: #666; }
         .btn-finished { background: #111; color: gold; border: 1px solid gold; cursor: default; }
-        #finish-screen { position: fixed; inset: 0; background: #000; display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
         #emoji-flash { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9000; pointer-events: none; }
     </style>
 </head>
@@ -44,7 +54,7 @@
         <div id="ui-box" class="panel"><button onclick="unlockAudio()" style="width:100%; padding:20px; font-weight:bold; cursor:pointer;">START RITUAL</button></div>
     </div>
 
-    <div id="ritual-log">Waiting for players...</div>
+    <div id="ritual-log">Waiting for spirits...</div>
     <div id="inv-display" style="color:gold; font-weight:bold; font-size:18px; margin-top:5px;">CARDS: 0</div>
     <div id="game-container"></div>
 
@@ -80,7 +90,7 @@
     function playSound(n) { const s = sounds[n].cloneNode(); s.play().catch(()=>{}); }
 
     const winJokes = ["You outran the ghosts! Now go outside, the sun won't bite.", "Winner! You are officially too fast for this haunted house.", "Congrats! The spirits gave up because you're too boring to haunt."];
-    const loseJokes = ["Gate 100 has been reached. You're basically a turtle in a haunted shell.", "Finish the game or the ghosts will start charging you rent!", "Hurry up! Even the skeletons are tired of waiting for you."];
+    const loseJokes = ["P1 reached the end. You're basically a turtle in a haunted shell.", "Finish the game or the ghosts will start charging you rent!", "Hurry up! Even the skeletons are tired of waiting for you."];
 
     function unlockAudio() {
         playSound('dice');
@@ -133,7 +143,7 @@
             return; 
         }
         
-        if (personalRolls >= 2 || Math.random() < 0.25) {
+        if (personalRolls >= 2 || Math.random() < 0.3) {
             personalRolls = 0;
             triggerResult(roll);
         } else {
@@ -141,56 +151,47 @@
         }
     }
 
-    function showFinishScreen(isMe, idx) {
-        const screen = document.getElementById('finish-screen');
-        const btnArea = document.getElementById('finish-btn-area');
-        screen.style.display = "flex";
-        
-        let activeCount = finished.slice(0, maxPlayers).filter(f => !f).length;
-
-        if(isMe) {
-            document.getElementById('finish-img').src = "f1.jpg";
-            document.getElementById('finish-title').innerText = "🎉 CONGRATULATIONS!";
-            document.getElementById('finish-joke').innerText = winJokes[Math.floor(Math.random()*winJokes.length)];
-        } else {
-            playSound('noob');
-            document.getElementById('finish-img').src = "h1.jpg";
-            document.getElementById('finish-title').innerText = `P${idx+1} FINISHED!`;
-            document.getElementById('finish-joke').innerText = loseJokes[Math.floor(Math.random()*loseJokes.length)];
-        }
-
-        if(activeCount > 1) {
-            btnArea.innerHTML = `<button onclick="document.getElementById('finish-screen').style.display='none'" style="margin-top:20px; padding:15px 30px; font-weight:bold;">WATCH OTHERS</button>`;
-        } else {
-            btnArea.innerHTML = `<button onclick="location.reload()" style="margin-top:20px; padding:15px 30px; font-weight:bold; background:gold;">NEW GAME</button>`;
-        }
-    }
-
     function triggerResult(roll) {
         const overlay = document.getElementById('overlay');
         const actions = document.getElementById('event-actions');
         overlay.style.display = "flex";
-        let isTrap = Math.random() > 0.45;
+        
+        let encounterRoll = Math.random(); 
+        let isTrap = encounterRoll < 0.60; // 60% Punishment
+        let isVoid = encounterRoll < 0.15; // Subset of Punishment: VOID
+        
         let randNum = Math.floor(Math.random() * 5) + 1;
         let type = isTrap ? 'h' : 'f';
         document.getElementById('res-img').src = type + randNum + ".jpg";
 
-        if (!isTrap) {
+        if (!isTrap) { // 40% Reward
             inventory.passes++;
+            document.getElementById('res-text').style.color = "gold";
             document.getElementById('res-text').innerText = "LOOT: Sabotage Card!";
-            actions.innerHTML = `<button onclick="closeOverlaySync('P${myRole+1} got a card')" style="width:100%; padding:15px; font-weight:bold;">COLLECT & END TURN</button>`;
-        } else {
+            actions.innerHTML = `<button onclick="closeOverlaySync('P${myRole+1} got a card')" style="width:100%; padding:15px; font-weight:bold; background:green; color:white;">COLLECT & END TURN</button>`;
+        } else { // 60% Punishment
             playSound('jump');
-            document.getElementById('res-text').innerText = "TRAP: -10 STEPS!";
-            let passButtons = "";
-            if (inventory.passes > 0) {
-                for (let i=0; i<maxPlayers; i++) {
-                    if(i !== myRole && !finished[i]) {
-                        passButtons += `<button onclick="usePass(${i})" style="background:purple; color:white; margin-top:5px; padding:12px; width:100%; border:none; border-radius:5px; font-weight:bold;">PASS TO P${i+1} & END TURN</button>`;
+            if (isVoid) {
+                document.getElementById('res-text').style.color = "red";
+                document.getElementById('res-text').innerText = "VOID: BACK TO START!";
+                let passBtns = `<button onclick="takeVoid()" style="width:100%; padding:15px; background:red; color:white; font-weight:bold;">ACCEPT DOOM</button>`;
+                if (inventory.passes > 0) {
+                    for (let i=0; i<maxPlayers; i++) {
+                        if(i !== myRole && !finished[i]) passBtns += `<button onclick="useVoidPass(${i})" style="background:black; color:red; margin-top:5px; padding:12px; width:100%; border:2px solid red; font-weight:bold;">PASS VOID TO P${i+1}</button>`;
                     }
                 }
+                actions.innerHTML = passBtns;
+            } else {
+                document.getElementById('res-text').style.color = "white";
+                document.getElementById('res-text').innerText = "TRAP: -10 STEPS!";
+                let passBtns = `<button onclick="takePunishment()" style="width:100%; padding:15px; font-weight:bold;">ACCEPT & END TURN</button>`;
+                if (inventory.passes > 0) {
+                    for (let i=0; i<maxPlayers; i++) {
+                        if(i !== myRole && !finished[i]) passBtns += `<button onclick="usePass(${i})" style="background:purple; color:white; margin-top:5px; padding:12px; width:100%; border:none; border-radius:5px; font-weight:bold;">SABOTAGE P${i+1}</button>`;
+                    }
+                }
+                actions.innerHTML = passBtns;
             }
-            actions.innerHTML = `<button onclick="takePunishment()" style="width:100%; padding:15px; font-weight:bold;">ACCEPT & END TURN</button>${passButtons}`;
         }
         updateUI();
     }
@@ -198,11 +199,21 @@
     function usePass(target) {
         inventory.passes--;
         document.getElementById('overlay').style.display = "none";
-        // Sabotage sends data AND moves the turn forward
-        const d = { type: 'sabotage', to: target, from: myRole, msg: `P${myRole+1} SABOTAGED P${target+1}!` };
+        const d = { type: 'sabotage', to: target, msg: `P${myRole+1} SABOTAGED P${target+1}!` };
         if (isHost) broadcast(d); else hostConn.send(d);
-        sync(`P${myRole+1} used a card on P${target+1}`); // This ends the turn
+        sync(`P${myRole+1} used a card on P${target+1}`);
     }
+
+    function useVoidPass(target) {
+        inventory.passes--;
+        document.getElementById('overlay').style.display = "none";
+        const d = { type: 'sabotage_void', to: target, msg: `P${myRole+1} SENT P${target+1} TO THE VOID!` };
+        if (isHost) broadcast(d); else hostConn.send(d);
+        sync(`P${myRole+1} passed the Void!`);
+    }
+
+    function takeVoid() { positions[myRole] = 1; document.getElementById('overlay').style.display = "none"; playSound('noob'); sync(`P${myRole+1} hit the Void!`); }
+    function takePunishment() { positions[myRole] = Math.max(1, positions[myRole]-10); document.getElementById('overlay').style.display = "none"; playSound('noob'); sync(`P${myRole+1} hit a trap!`); }
 
     function handleData(d) {
         if (isHost) { guestConns.forEach(c => { if(c.peer !== d.fromPeer) c.send(d); }); }
@@ -218,11 +229,11 @@
         if (d.type === 'sync') { positions = d.pos; turn = d.turn; document.getElementById('ritual-log').innerText = d.msg; updateUI(); }
         if (d.type === 'finish') { 
             finished[d.winner] = true; positions[d.winner] = 100;
-            document.getElementById('ritual-log').innerText = d.msg;
             showFinishScreen(false, d.winner);
             updateUI();
         }
         if (d.type === 'sabotage') { positions[d.to] = Math.max(1, positions[d.to]-10); if(d.to === myRole) playSound('noob'); updateUI(); }
+        if (d.type === 'sabotage_void') { positions[d.to] = 1; if(d.to === myRole) playSound('noob'); updateUI(); }
     }
 
     function broadcast(d) { handleData(d); guestConns.forEach(c => c.send(d)); }
@@ -235,26 +246,17 @@
     }
 
     function nextTurn() {
-        let activePlayers = finished.slice(0, maxPlayers).filter(f => !f).length;
-        if(activePlayers <= 0) return; 
-
-        let safety = 0;
-        do {
-            turn = (turn + 1) % maxPlayers;
-            safety++;
-        } while (finished[turn] && safety < 10);
+        let active = finished.slice(0, maxPlayers).filter(f => !f).length;
+        if(active <= 0) return;
+        let s = 0;
+        do { turn = (turn + 1) % maxPlayers; s++; } while (finished[turn] && s < 10);
     }
 
     function updateUI() {
         const active = (turn === myRole && !finished[myRole]);
         const btn = document.getElementById('roll-btn');
-        if(finished[myRole]) {
-            btn.disabled = true; btn.innerText = "🏆 FINISHED"; btn.className = "btn-finished";
-        } else {
-            btn.disabled = !active;
-            btn.innerText = active ? "ROLL DICE" : `P${turn+1}'S TURN`;
-            btn.className = active ? "btn-active" : "btn-wait";
-        }
+        if(finished[myRole]) { btn.disabled = true; btn.innerText = "🏆 FINISHED"; btn.className = "btn-finished"; }
+        else { btn.disabled = !active; btn.innerText = active ? "ROLL DICE" : `P${turn+1}'S TURN`; btn.className = active ? "btn-active" : "btn-wait"; }
         document.getElementById('inv-display').innerText = `CARDS: ${inventory.passes}`;
         document.querySelectorAll('.player').forEach(p => p.remove());
         positions.slice(0, maxPlayers).forEach((pos, i) => {
@@ -267,7 +269,24 @@
         });
     }
 
-    function takePunishment() { positions[myRole] = Math.max(1, positions[myRole]-10); document.getElementById('overlay').style.display = "none"; playSound('noob'); sync(`P${myRole+1} hit a trap!`); }
+    function showFinishScreen(isMe, idx) {
+        const screen = document.getElementById('finish-screen');
+        const btnArea = document.getElementById('finish-btn-area');
+        screen.style.display = "flex";
+        let remaining = finished.slice(0, maxPlayers).filter(f => !f).length;
+        if(isMe) {
+            document.getElementById('finish-img').src = "f1.jpg";
+            document.getElementById('finish-title').innerText = "🎉 CONGRATULATIONS!";
+            document.getElementById('finish-joke').innerText = winJokes[Math.floor(Math.random()*winJokes.length)];
+        } else {
+            playSound('noob');
+            document.getElementById('finish-img').src = "h1.jpg";
+            document.getElementById('finish-title').innerText = `P${idx+1} FINISHED!`;
+            document.getElementById('finish-joke').innerText = loseJokes[Math.floor(Math.random()*loseJokes.length)];
+        }
+        btnArea.innerHTML = (remaining > 1) ? `<button onclick="document.getElementById('finish-screen').style.display='none'" style="padding:15px;">WATCH OTHERS</button>` : `<button onclick="location.reload()" style="padding:15px; background:gold;">NEW GAME</button>`;
+    }
+
     function sendEmoji(e) { const m = { type: 'chat', sender: `P${myRole+1}`, text: e }; if (isHost) broadcast(m); else hostConn.send(m); }
     function closeOverlaySync(m) { document.getElementById('overlay').style.display="none"; sync(m); }
     function copyL() { const i = document.getElementById('lInp'); i.select(); navigator.clipboard.writeText(i.value); alert("Link Copied!"); }
