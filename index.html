@@ -125,14 +125,41 @@
         peer.on('open', () => { hostConn = peer.connect(id); hostConn.on('data', d => handleData(d)); }); 
     }
 
+    // function playTurn() {
+    //     if(finished[myRole]) return;
+    //     playSound('dice');
+    //     let roll = Math.floor(Math.random() * 6) + 1;
+    //     document.getElementById('dice-box').innerText = "🎲 " + roll;
+    //     positions[myRole] += roll;
+    //     personalRolls++;
+
+    //     if (positions[myRole] >= 100) { 
+    //         positions[myRole] = 100;
+    //         finished[myRole] = true;
+    //         updateUI();
+    //         const d = { type: 'finish', winner: myRole, msg: `P${myRole+1} HAS FINISHED!` };
+    //         if (isHost) broadcast(d); else hostConn.send(d);
+    //         showFinishScreen(true, myRole);
+    //         return; 
+    //     }
+        
+    //     if (personalRolls >= 2 || Math.random() < 0.2) {
+    //         personalRolls = 0;
+    //         triggerResult(roll);
+    //     } else {
+    //         sync(`P${myRole+1} rolled ${roll}`);
+    //     }
+    // }
+
     function playTurn() {
         if(finished[myRole]) return;
         playSound('dice');
         let roll = Math.floor(Math.random() * 6) + 1;
         document.getElementById('dice-box').innerText = "🎲 " + roll;
         positions[myRole] += roll;
-        personalRolls++;
+        personalRolls++; // Increment turn counter for this player
 
+        // 1. Check if they finished first
         if (positions[myRole] >= 100) { 
             positions[myRole] = 100;
             finished[myRole] = true;
@@ -143,10 +170,13 @@
             return; 
         }
         
-        if (personalRolls >= 2 || Math.random() < 0.3) {
-            personalRolls = 0;
+        // 2. STRICTURE EVENT LOGIC:
+        // Trigger if it's the 2nd roll OR a 20% random chance on the 1st roll
+        if (personalRolls >= 2 || Math.random() < 0.2) {
+            personalRolls = 0; // Reset counter after encounter
             triggerResult(roll);
         } else {
+            // No encounter this time, just move and sync
             sync(`P${myRole+1} rolled ${roll}`);
         }
     }
@@ -168,7 +198,7 @@
             inventory.passes++;
             document.getElementById('res-text').style.color = "gold";
             document.getElementById('res-text').innerText = "LOOT: Sabotage Card!";
-            actions.innerHTML = `<button onclick="closeOverlaySync('P${myRole+1} got a card')" style="width:100%; padding:15px; font-weight:bold; background:green; color:white;">COLLECT & END TURN</button>`;
+            actions.innerHTML = `<button onclick="closeOverlaySync('P${myRole+1} got a card')" style="width:100%; padding:15px; font-weight:bold; background:green; color:white;">COLLECT</button>`;
         } else { // 60% Punishment
             playSound('jump');
             if (isVoid) {
@@ -184,7 +214,7 @@
             } else {
                 document.getElementById('res-text').style.color = "white";
                 document.getElementById('res-text').innerText = "TRAP: -10 STEPS!";
-                let passBtns = `<button onclick="takePunishment()" style="width:100%; padding:15px; font-weight:bold;">ACCEPT & END TURN</button>`;
+                let passBtns = `<button onclick="takePunishment()" style="width:100%; padding:15px; font-weight:bold;">ACCEPT</button>`;
                 if (inventory.passes > 0) {
                     for (let i=0; i<maxPlayers; i++) {
                         if(i !== myRole && !finished[i]) passBtns += `<button onclick="usePass(${i})" style="background:purple; color:white; margin-top:5px; padding:12px; width:100%; border:none; border-radius:5px; font-weight:bold;">SABOTAGE P${i+1}</button>`;
@@ -304,3 +334,4 @@
 </script>
 </body>
 </html>
+
