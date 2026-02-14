@@ -22,21 +22,9 @@
         #chat-window { position: fixed; bottom: 0; left: 0; width: 100%; background: #111; z-index: 2000; border-top: 2px solid var(--accent); }
         .emoji-grid { display: grid; grid-template-columns: repeat(5, 1fr); padding: 10px; gap: 5px; }
         .emoji-grid button { font-size: 22px; padding: 10px; background: #222; color: white; border: none; border-radius: 5px; }
-
-        /* NEW: End Game Text Screen */
-        #end-screen { position: fixed; inset: 0; background: #000; display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
-        #end-screen h1 { font-size: 40px; margin: 0; }
-        #end-screen p { font-size: 18px; padding: 20px; color: #bbb; }
     </style>
 </head>
 <body>
-
-    <div id="end-screen">
-        <div id="end-icon" style="font-size: 100px;">🏆</div>
-        <h1 id="end-title">CONGRATULATIONS!</h1>
-        <p id="end-msg">You have escaped the gates.</p>
-        <button onclick="location.reload()" style="padding: 15px 30px; font-weight: bold; border-radius: 5px; border: none; cursor: pointer;">PLAY AGAIN</button>
-    </div>
 
     <div id="emoji-flash"><p id="flash-content"></p><p id="flash-user" style="color:red;"></p></div>
 
@@ -105,11 +93,7 @@
         let roll = Math.floor(Math.random() * 6) + 1;
         positions[myRole] += roll;
         personalTurnCounter++;
-        if (positions[myRole] >= 100) { 
-            positions[myRole] = 100; // Cap at 100
-            sync(`PLAYER ${myRole+1} WON!`, myRole); 
-            return; 
-        }
+        if (positions[myRole] >= 100) { sync(`PLAYER ${myRole+1} WON!`, myRole); return; }
         
         if (personalTurnCounter >= 2) {
             personalTurnCounter = 0;
@@ -119,33 +103,10 @@
         }
     }
 
-    // NEW: Show Final Text Logic
-    function showFinalMessage(winnerIdx) {
-        const screen = document.getElementById('end-screen');
-        const title = document.getElementById('end-title');
-        const msg = document.getElementById('end-msg');
-        const icon = document.getElementById('end-icon');
-        
-        screen.style.display = "flex";
-        
-        if (winnerIdx === myRole) {
-            icon.innerText = "🏆";
-            title.innerText = "CONGRATULATIONS!";
-            title.style.color = "gold";
-            msg.innerText = "You escaped the 100 Gates! You are a Pro!";
-        } else {
-            playSound('noob');
-            icon.innerText = "🤡";
-            title.innerText = "YOU LOST!";
-            title.style.color = "red";
-            msg.innerText = "NOOB ALERT! You are stuck in the void forever.";
-        }
-    }
-
     function triggerResult() {
         const overlay = document.getElementById('overlay');
         overlay.style.display = "flex";
-        let isTrap = Math.random() > 0.4; // Slightly more traps
+        let isTrap = Math.random() > 0.5;
 
         if (!isTrap) {
             inventory.passes++;
@@ -182,7 +143,7 @@
     }
 
     function handleData(d) {
-        if (isHost) {
+        if (isHost) { // HOST RELAY SYSTEM
             guestConns.forEach(c => { if(c.peer !== d.fromPeer) c.send(d); });
         }
         if (d.type === 'chat') {
@@ -194,22 +155,16 @@
             setTimeout(() => f.style.display = "none", 1500);
         }
         if (d.type === 'init') { myRole = d.role; maxPlayers = d.max; positions = d.pos; turn = d.turn; document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
-        if (d.type === 'sync') { 
-            positions = d.pos; turn = d.turn; 
-            document.getElementById('ritual-log').innerText = d.msg; 
-            if(d.winner !== -1) showFinalMessage(d.winner);
-            updateUI(); 
-        }
+        if (d.type === 'sync') { positions = d.pos; turn = d.turn; document.getElementById('ritual-log').innerText = d.msg; updateUI(); }
         if (d.type === 'sabotage') { positions[d.to] = Math.max(1, positions[d.to]-10); turn = (turn + 1) % maxPlayers; document.getElementById('ritual-log').innerText = d.msg; updateUI(); }
     }
 
     function broadcast(d) { handleData(d); guestConns.forEach(c => c.send(d)); }
 
     function sync(msg, win = -1) {
-        if(win === -1) turn = (turn + 1) % maxPlayers;
+        turn = (turn + 1) % maxPlayers;
         const d = { type: 'sync', pos: positions, turn: turn, msg: msg, winner: win };
         if (isHost) broadcast(d); else hostConn.send(d);
-        if(win !== -1) showFinalMessage(win);
     }
 
     function updateUI() {
