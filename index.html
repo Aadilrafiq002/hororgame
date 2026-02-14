@@ -3,121 +3,125 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>100 GATES: AUTO-CONNECT</title>
+    <title>100 GATES: STICKY CONNECT</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg: #050505; --accent: #8b0000; }
         body { background: var(--bg); color: #ddd; font-family: 'Courier New', monospace; margin: 0; text-align: center; overflow: hidden; }
         
-        /* Loading Screen */
         #loading-screen {
-            position: fixed; top:0; left:0; width:100%; height:100%; background: #000;
+            position: fixed; inset: 0; background: #000;
             z-index: 9999; display: none; flex-direction: column; justify-content: center; align-items: center;
         }
         .spinner { width: 50px; height: 50px; border: 5px solid #222; border-top: 5px solid red; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
 
-        /* Setup UI */
         .setup-screen { position: fixed; inset: 0; background: #000; z-index: 4000; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        .panel { background: #1a1a1a; padding: 20px; border-radius: 10px; width: 90%; max-width: 400px; border: 1px solid #333; }
+        .panel { background: #1a1a1a; padding: 20px; border-radius: 10px; width: 90%; max-width: 400px; border: 1px solid #333; margin-bottom: 10px; }
         
-        button { background: var(--accent); color: white; border: none; padding: 20px; width: 100%; border-radius: 5px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+        button { background: var(--accent); color: white; border: none; padding: 20px; width: 100%; border-radius: 5px; font-size: 18px; font-weight: bold; cursor: pointer; }
         
-        #game-wrapper { width: 95vw; max-width: 400px; aspect-ratio: 1/1; display: flex; flex-wrap: wrap-reverse; margin: 10px auto; border: 2px solid #333; }
+        #game-wrapper { width: 95vw; max-width: 400px; aspect-ratio: 1/1; display: flex; flex-wrap: wrap-reverse; margin: 10px auto; border: 2px solid #333; background: #111; }
         .cell { width: 10%; height: 10%; border: 0.1px solid #222; display: flex; align-items: center; justify-content: center; font-size: 8px; position: relative; }
-        .player { width: 14px; height: 14px; border-radius: 50%; position: absolute; border: 1px solid white; transition: 0.3s; }
-        .p0 { background: red; } .p1 { background: cyan; }
+        .player { width: 14px; height: 14px; border-radius: 50%; position: absolute; border: 1px solid white; transition: 0.4s; z-index: 50; }
+        .p0 { background: red; box-shadow: 0 0 10px red; } 
+        .p1 { background: cyan; box-shadow: 0 0 10px cyan; }
     </style>
 </head>
 <body>
 
     <div id="loading-screen">
         <div class="spinner"></div>
-        <h2 id="loading-msg" style="color:red; margin-top:20px;">WAKING THE GATES...</h2>
+        <h2 id="loading-msg" style="color:red; margin-top:20px;">CONNECTING...</h2>
     </div>
 
     <div id="setup-screen" class="setup-screen">
-        <h1 style="color:var(--accent); font-size: 40px; margin-bottom: 20px;">100 GATES</h1>
-        <div id="host-controls" class="panel">
-            <p>Select Players</p>
-            <select id="p-count" style="width:100%; padding:10px; margin-bottom:10px;">
-                <option value="2">2 Players</option>
-                <option value="3">3 Players</option>
-                <option value="4">4 Players</option>
-            </select>
-            <button onclick="startAsHost()">HOST RITUAL</button>
-        </div>
+        <h1 style="color:var(--accent); font-size: 40px;">100 GATES</h1>
         
-        <div id="waiting-area" class="panel" style="display:none;">
-            <p style="color:yellow">FRIEND LINK:</p>
-            <input type="text" id="copy-link" style="width:100%; padding:10px; background:#000; color:red; border:1px solid #444;" readonly>
-            <p id="soul-count" style="font-size:20px; color:red; margin-top:15px;">Souls: 1</p>
+        <div id="ui-box" class="panel">
+            <p>Preparing Ritual...</p>
         </div>
     </div>
 
-    <div id="status" style="padding:10px; color:orange;">WAITING...</div>
+    <div id="status" style="padding:5px; color:orange; font-size: 12px;">WAITING...</div>
     <div id="game-wrapper"></div>
     <div class="panel" style="margin: 0 auto;">
         <div id="dice-res" style="font-size:30px">🎲</div>
-        <button id="roll-btn" onclick="rollDice()" disabled>ROLL</button>
+        <button id="roll-btn" onclick="rollDice()" disabled>ROLL DICE</button>
     </div>
 
 <script>
     let peer, conns = [], myRole = 0, isHost = false, turn = 0, positions = [1,1,1,1], maxPlayers = 2;
     let sounds = {};
 
-    // 1. AUTO-DETECT GUEST ON PAGE LOAD
+    // 1. IMPROVED AUTO-DETECTION
     window.onload = () => {
         createBoard();
-        const roomID = window.location.hash.replace('#', '');
-        if (roomID && roomID.length > 5) {
-            // Immediately trigger Guest Logic
-            document.getElementById('host-controls').innerHTML = `<h3 style="color:cyan">INVITATION RECEIVED</h3><p>Connecting to Host...</p>`;
-            setTimeout(() => startAsGuest(roomID), 500); 
+        const roomID = window.location.hash.substring(1); // Get ID after #
+        
+        if (roomID) {
+            startAsGuest(roomID);
+        } else {
+            showHostUI();
         }
     };
 
-    function showLoad(m) {
-        document.getElementById('loading-screen').style.display = 'flex';
-        document.getElementById('loading-msg').innerText = m;
+    function showHostUI() {
+        document.getElementById('ui-box').innerHTML = `
+            <p>Select Number of Players</p>
+            <select id="p-count" style="width:100%; padding:10px; margin-bottom:10px; background:#000; color:white;">
+                <option value="2">2 Players</option>
+                <option value="3">3 Players</option>
+                <option value="4">4 Players</option>
+            </select>
+            <button onclick="startAsHost()">HOST RITUAL</button>
+        `;
     }
 
     function initSounds() {
-        sounds.bg = new Audio('horrorsound.mp3'); sounds.bg.loop = true; sounds.bg.volume = 0.2;
-        sounds.jump = new Audio('jump.mp3');
-        sounds.dice = new Audio('dice.mp3');
-        sounds.bg.play().catch(() => {});
+        try {
+            sounds.bg = new Audio('horrorsound.mp3'); sounds.bg.loop = true; sounds.bg.volume = 0.2;
+            sounds.jump = new Audio('jump.mp3');
+            sounds.dice = new Audio('dice.mp3');
+            sounds.bg.play().catch(() => {});
+        } catch(e) {}
     }
 
     function startAsHost() {
         isHost = true;
         maxPlayers = parseInt(document.getElementById('p-count').value);
-        showLoad("GENERATING RITUAL ID...");
+        showLoading("SUMMONING ID...");
         initSounds();
 
         peer = new Peer({ config: {'iceServers': [{ url: 'stun:stun.l.google.com:19302' }]}});
         
         peer.on('open', (id) => {
-            document.getElementById('loading-screen').style.display = 'none';
-            document.getElementById('host-controls').style.display = 'none';
-            document.getElementById('waiting-area').style.display = 'block';
-            document.getElementById('copy-link').value = window.location.href.split('#')[0] + '#' + id;
+            hideLoading();
+            const inviteLink = window.location.origin + window.location.pathname + '#' + id;
+            document.getElementById('ui-box').innerHTML = `
+                <p style="color:yellow">SHARE THIS LINK:</p>
+                <input type="text" value="${inviteLink}" id="linkInput" style="width:100%; padding:10px; background:#000; color:red; border:1px solid #444;" readonly>
+                <button onclick="copyLink()" style="padding:10px; margin-top:5px; font-size:14px;">COPY LINK</button>
+                <p id="soul-count" style="font-size:20px; color:red; margin-top:15px;">Souls Joined: 1 / ${maxPlayers}</p>
+            `;
         });
 
         peer.on('connection', (c) => {
             conns.push(c);
             setupConn(c);
-            document.getElementById('soul-count').innerText = "Souls: " + (conns.length + 1);
+            document.getElementById('soul-count').innerText = `Souls Joined: ${conns.length + 1} / ${maxPlayers}`;
             if (conns.length === maxPlayers - 1) {
-                conns.forEach((conn, i) => conn.send({type:'init', role: i+1, max: maxPlayers}));
-                document.getElementById('setup-screen').style.display = 'none';
-                updateUI();
+                setTimeout(() => {
+                    conns.forEach((conn, i) => conn.send({type:'init', role: i+1, max: maxPlayers}));
+                    document.getElementById('setup-screen').style.display = 'none';
+                    updateUI();
+                }, 1000);
             }
         });
     }
 
     function startAsGuest(id) {
-        showLoad("CONNECTING TO HOST...");
+        showLoading("JOINING RITUAL...");
         initSounds();
         peer = new Peer({ config: {'iceServers': [{ url: 'stun:stun.l.google.com:19302' }]}});
         
@@ -125,8 +129,13 @@
             const c = peer.connect(id, {reliable: true});
             setupConn(c);
         });
-        
-        peer.on('error', () => { alert("Failed to connect. Host might be offline."); location.hash = ""; location.reload(); });
+
+        peer.on('error', (err) => {
+            console.error(err);
+            alert("Host is not found. Creating new ritual instead.");
+            window.location.hash = "";
+            location.reload();
+        });
     }
 
     function setupConn(c) {
@@ -134,7 +143,7 @@
             if (data.type === 'init') {
                 myRole = data.role; maxPlayers = data.max;
                 document.getElementById('setup-screen').style.display = 'none';
-                document.getElementById('loading-screen').style.display = 'none';
+                hideLoading();
                 updateUI();
             }
             if (data.type === 'sync') {
@@ -149,24 +158,27 @@
         let roll = Math.floor(Math.random() * 6) + 1;
         document.getElementById('dice-res').innerText = roll;
         positions[myRole] += roll;
-        if(positions[myRole] >= 100) { alert("WON!"); location.reload(); }
+        if(positions[myRole] >= 100) positions[myRole] = 100;
+        
         turn = (turn + 1) % maxPlayers;
         sync();
         updateUI();
+
+        if(positions[myRole] === 100) { alert("YOU ESCAPED!"); location.reload(); }
     }
 
     function sync() {
         const d = {type:'sync', pos: positions, turn: turn};
         if(isHost) conns.forEach(c => c.send(d));
         else {
-            const hostID = window.location.hash.replace('#', '');
+            const hostID = window.location.hash.substring(1);
             const c = peer.connect(hostID);
             c.on('open', () => c.send(d));
         }
     }
 
     function updateUI() {
-        document.getElementById('status').innerText = (turn === myRole) ? "YOUR TURN" : "WAITING...";
+        document.getElementById('status').innerText = (turn === myRole) ? "YOUR TURN" : "WAITING FOR OTHERS...";
         document.getElementById('roll-btn').disabled = (turn !== myRole);
         document.querySelectorAll('.player').forEach(p => p.remove());
         positions.slice(0, maxPlayers).forEach((p, i) => {
@@ -178,6 +190,17 @@
             }
         });
     }
+
+    function copyLink() {
+        const copyText = document.getElementById("linkInput");
+        copyText.select();
+        copyText.setSelectionRange(0, 99999);
+        navigator.clipboard.writeText(copyText.value);
+        alert("Link Copied! Send it to your friend.");
+    }
+
+    function showLoading(m) { document.getElementById('loading-screen').style.display = 'flex'; document.getElementById('loading-msg').innerText = m; }
+    function hideLoading() { document.getElementById('loading-screen').style.display = 'none'; }
 
     function createBoard() {
         const w = document.getElementById('game-wrapper');
