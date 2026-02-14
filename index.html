@@ -3,65 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>100 GATES: RELIABLE</title>
+    <title>100 GATES: INTERACTIVE</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg: #050505; --accent: #8b0000; }
         body { background: var(--bg); color: #ddd; font-family: 'Courier New', monospace; margin: 0; text-align: center; overflow: hidden; }
+        
         #loading-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: none; flex-direction: column; justify-content: center; align-items: center; }
         .spinner { width: 40px; height: 40px; border: 4px solid #333; border-top: 4px solid red; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
+
         .setup-screen { position: fixed; inset: 0; background: #000; z-index: 4000; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        .panel { background: #1a1a1a; padding: 20px; border-radius: 10px; width: 90%; max-width: 400px; border: 1px solid #333; }
-        button { background: var(--accent); color: white; border: none; padding: 20px; width: 100%; border-radius: 5px; font-size: 18px; font-weight: bold; cursor: pointer; margin-top: 10px; }
-        #game-wrapper { width: 95vw; max-width: 400px; aspect-ratio: 1/1; display: flex; flex-wrap: wrap-reverse; margin: 10px auto; border: 2px solid #333; background: #111; }
+        .panel { background: #1a1a1a; padding: 15px; border-radius: 10px; width: 90%; max-width: 400px; border: 1px solid #333; margin: 5px auto; }
+        
+        /* Dynamic Button Styles */
+        #roll-btn { 
+            padding: 20px; width: 100%; border-radius: 5px; font-size: 18px; font-weight: bold; cursor: pointer; 
+            border: none; transition: 0.3s; color: white;
+        }
+        .my-turn { background: #008000 !important; box-shadow: 0 0 15px #00ff00; }
+        .not-my-turn { background: #333 !important; color: #666 !important; cursor: not-allowed; }
+
+        #game-wrapper { width: 95vw; max-width: 400px; aspect-ratio: 1/1; display: flex; flex-wrap: wrap-reverse; margin: 5px auto; border: 2px solid #333; background: #111; }
         .cell { width: 10%; height: 10%; border: 0.1px solid #222; display: flex; align-items: center; justify-content: center; font-size: 8px; position: relative; }
-        .player { width: 16px; height: 16px; border-radius: 50%; position: absolute; border: 2px solid white; transition: 0.3s; z-index: 100; }
+        
+        .player { width: 18px; height: 18px; border-radius: 50%; position: absolute; border: 2px solid white; transition: 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 100; }
         .p0 { background: #ff0000; } .p1 { background: #00ffff; } .p2 { background: #00ff00; } .p3 { background: #ffff00; }
-        #status { font-weight: bold; color: yellow; height: 20px; margin: 5px; font-size: 14px; }
+        
+        #ritual-log { font-size: 12px; color: #aaa; height: 40px; overflow: hidden; padding: 5px; border-top: 1px solid #222; }
     </style>
 </head>
 <body>
-    <div id="loading-screen"><div class="spinner"></div><h2 id="loading-msg" style="color:red; margin-top:20px;">HANDSHAKING...</h2></div>
+    <div id="loading-screen"><div class="spinner"></div><h2 id="loading-msg" style="color:red; margin-top:20px;">CONNECTING...</h2></div>
+    
     <div id="setup-screen" class="setup-screen">
         <h1 style="color:var(--accent); font-size: 40px;">100 GATES</h1>
         <div id="ui-box" class="panel"></div>
     </div>
-    <div id="status">INITIALIZING...</div>
+
+    <div id="ritual-log">Waiting for players to join the ritual...</div>
+    
     <div id="game-wrapper"></div>
-    <div class="panel" style="margin: 0 auto; background: #111;">
-        <div id="dice-res" style="font-size:40px; margin-bottom: 10px;">🎲</div>
-        <button id="roll-btn" onclick="rollDice()" disabled>ROLL DICE</button>
+    
+    <div class="panel">
+        <div id="dice-visual" style="font-size:40px; margin-bottom: 5px;">?</div>
+        <button id="roll-btn" onclick="rollDice()" disabled>WAITING...</button>
     </div>
 
 <script>
     let peer, hostConn, guestConns = [];
     let myRole = -1, isHost = false, turn = 0, positions = [1,1,1,1], maxPlayers = 2;
     let sounds = { dice: new Audio('dice.mp3'), jump: new Audio('jump.mp3') };
+    const playerColors = ["RED", "CYAN", "LIME", "YELLOW"];
 
     window.onload = () => {
         createBoard();
         const roomID = window.location.hash.substring(1);
-        if (roomID) {
-            startAsGuest(roomID);
-        } else {
-            showHostUI();
-        }
+        if (roomID) startAsGuest(roomID); else showHostUI();
     };
 
     function showHostUI() {
         document.getElementById('ui-box').innerHTML = `
-            <p>Host a New Ritual</p>
-            <select id="p-count" style="width:100%; padding:10px; background:#000; color:white;">
+            <p>Setup Game</p>
+            <select id="p-count" style="width:100%; padding:10px; background:#000; color:white; margin-bottom:10px;">
                 <option value="2">2 Players</option><option value="3">3 Players</option><option value="4">4 Players</option>
             </select>
-            <button onclick="startAsHost()">OPEN THE GATES</button>`;
+            <button onclick="startAsHost()" style="background:var(--accent); color:white; padding:15px; width:100%; border:none; cursor:pointer;">START HOSTING</button>`;
     }
 
     function startAsHost() {
         isHost = true;
         maxPlayers = parseInt(document.getElementById('p-count').value);
-        showLoading("SUMMONING SERVER...");
+        showLoading("SUMMONING ID...");
         peer = new Peer({ config: {'iceServers': [{ url: 'stun:stun.l.google.com:19302' }]}});
         
         peer.on('open', (id) => {
@@ -69,42 +82,28 @@
             myRole = 0;
             const link = window.location.origin + window.location.pathname + '#' + id;
             document.getElementById('ui-box').innerHTML = `
-                <p style="color:yellow">FRIEND LINK:</p>
+                <p style="color:yellow">SEND TO FRIENDS:</p>
                 <input type="text" value="${link}" id="linkInp" style="width:100%; padding:10px; background:#000; color:red; border:1px solid #444;" readonly>
-                <button onclick="copyLink()">COPY LINK</button>
-                <p id="p-joined" style="color:red; margin-top:15px; font-size:20px;">Players: 1 / ${maxPlayers}</p>`;
+                <button onclick="copyLink()" style="background:#444; color:white; padding:10px; margin-top:5px; border:none; width:100%;">COPY LINK</button>
+                <p id="p-joined" style="color:red; margin-top:15px; font-size:20px;">Souls: 1 / ${maxPlayers}</p>`;
         });
 
         peer.on('connection', (conn) => {
             guestConns.push(conn);
-            document.getElementById('p-joined').innerText = `Players: ${guestConns.length + 1} / ${maxPlayers}`;
-            
+            log(`A new soul has joined.`);
+            document.getElementById('p-joined').innerText = `Souls: ${guestConns.length + 1} / ${maxPlayers}`;
             conn.on('data', (data) => handleData(data));
-            
-            if (guestConns.length === maxPlayers - 1) {
-                setTimeout(sendInitialState, 1000);
-            }
+            if (guestConns.length === maxPlayers - 1) setTimeout(sendInitialState, 1000);
         });
-    }
-
-    function sendInitialState() {
-        guestConns.forEach((c, i) => {
-            c.send({ type: 'init', role: i + 1, max: maxPlayers, pos: positions, turn: turn });
-        });
-        document.getElementById('setup-screen').style.display = 'none';
-        updateUI();
     }
 
     function startAsGuest(id) {
-        showLoading("JOINING RITUAL...");
+        showLoading("JOINING GATES...");
         peer = new Peer({ config: {'iceServers': [{ url: 'stun:stun.l.google.com:19302' }]}});
         peer.on('open', () => {
             hostConn = peer.connect(id, { reliable: true });
             hostConn.on('data', (data) => handleData(data));
-            hostConn.on('open', () => {
-                hideLoading();
-                document.getElementById('status').innerText = "CONNECTED to GATES";
-            });
+            hostConn.on('open', () => hideLoading());
         });
         peer.on('error', () => { alert("Host Offline"); window.location.hash=""; location.reload(); });
     }
@@ -114,10 +113,12 @@
             myRole = data.role; maxPlayers = data.max;
             positions = data.pos; turn = data.turn;
             document.getElementById('setup-screen').style.display = 'none';
+            log(`Ritual Started. You are Player ${myRole + 1}`);
             updateUI();
         }
         if (data.type === 'sync') {
             positions = data.pos; turn = data.turn;
+            log(data.msg);
             if (data.scare) sounds.jump.play();
             updateUI();
         }
@@ -126,33 +127,41 @@
     function rollDice() {
         sounds.dice.play();
         let roll = Math.floor(Math.random() * 6) + 1;
-        document.getElementById('dice-res').innerText = roll;
+        document.getElementById('dice-visual').innerText = roll;
         
-        // Logic Move
         positions[myRole] += roll;
         if (positions[myRole] >= 100) positions[myRole] = 100;
 
         let scare = (Math.random() > 0.85);
         if (scare) sounds.jump.play();
 
+        let oldTurn = turn;
         turn = (turn + 1) % maxPlayers;
         
-        // Global Sync
-        const msg = { type: 'sync', pos: positions, turn: turn, scare: scare };
-        if (isHost) {
-            guestConns.forEach(c => c.send(msg));
-        } else {
-            hostConn.send(msg);
-        }
+        let message = `P${oldTurn + 1} rolled ${roll} and is at Gate ${positions[oldTurn]}`;
+        log(message);
+
+        const msg = { type: 'sync', pos: positions, turn: turn, scare: scare, msg: message };
+        if (isHost) guestConns.forEach(c => c.send(msg));
+        else hostConn.send(msg);
+
         updateUI();
-        if (positions[myRole] === 100) { alert("YOU ESCAPED!"); location.hash=""; location.reload(); }
+        if (positions[myRole] === 100) { alert("YOU ESCAPED THE GATES!"); location.hash=""; location.reload(); }
     }
 
     function updateUI() {
         const isMyTurn = (turn === myRole);
-        document.getElementById('status').innerText = isMyTurn ? ">> YOUR TURN <<" : "OTHERS ARE MOVING...";
-        document.getElementById('status').style.color = isMyTurn ? "red" : "gray";
-        document.getElementById('roll-btn').disabled = !isMyTurn;
+        const btn = document.getElementById('roll-btn');
+        
+        if (isMyTurn) {
+            btn.disabled = false;
+            btn.innerText = "YOUR TURN - ROLL!";
+            btn.className = "my-turn";
+        } else {
+            btn.disabled = true;
+            btn.innerText = `WAITING FOR P${turn + 1}...`;
+            btn.className = "not-my-turn";
+        }
 
         document.querySelectorAll('.player').forEach(p => p.remove());
         positions.slice(0, maxPlayers).forEach((p, i) => {
@@ -165,15 +174,18 @@
         });
     }
 
-    function copyLink() {
-        const inp = document.getElementById('linkInp');
-        inp.select();
-        navigator.clipboard.writeText(inp.value);
-        alert("Link Copied! Send to friend.");
-    }
-
+    function log(m) { document.getElementById('ritual-log').innerText = m; }
+    function copyLink() { const inp = document.getElementById('linkInp'); inp.select(); navigator.clipboard.writeText(inp.value); alert("Link Copied!"); }
     function showLoading(m) { document.getElementById('loading-screen').style.display='flex'; document.getElementById('loading-msg').innerText=m; }
     function hideLoading() { document.getElementById('loading-screen').style.display='none'; }
+
+    function sendInitialState() {
+        guestConns.forEach((c, i) => {
+            c.send({ type: 'init', role: i + 1, max: maxPlayers, pos: positions, turn: turn });
+        });
+        document.getElementById('setup-screen').style.display = 'none';
+        updateUI();
+    }
 
     function createBoard() {
         const w = document.getElementById('game-wrapper');
