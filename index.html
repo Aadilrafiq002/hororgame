@@ -3,40 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>100 GATES: SURPRISE RITUAL</title>
+    <title>100 GATES: H & F EDITION</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg: #050505; --accent: #bc0000; --panel: #1a1a1a; }
         body { background: var(--bg); color: #cfcfcf; font-family: 'Courier New', monospace; margin: 0; text-align: center; overflow: hidden; }
-        
-        /* Board Setup */
-        #game-container { 
-            display: grid; grid-template-columns: repeat(10, 1fr); 
-            width: 95vw; max-width: 400px; aspect-ratio: 1/1; 
-            margin: 10px auto; border: 5px solid #333; background: #222; 
-        }
+        #game-container { display: grid; grid-template-columns: repeat(10, 1fr); width: 95vw; max-width: 400px; aspect-ratio: 1/1; margin: 5px auto; border: 5px solid #333; background: #222; }
         .cell { border: 0.1px solid #222; display: flex; align-items: center; justify-content: center; font-size: 10px; position: relative; background: #121212; }
-        .cell:nth-child(even) { background: #181818; }
-
-        /* Players */
         .player { width: 18px; height: 18px; border-radius: 50%; position: absolute; border: 2px solid #000; transition: 0.5s; z-index: 10; }
-        .p0 { background: #ff3333; box-shadow: 0 0 10px #ff3333; }
-        .p1 { background: #33aaff; box-shadow: 0 0 10px #33aaff; }
-        .p2 { background: #33ff77; box-shadow: 0 0 10px #33ff77; }
-        .p3 { background: #f0ff33; box-shadow: 0 0 10px #f0ff33; }
-
-        /* UI Elements */
-        .panel { background: var(--panel); padding: 15px; border-radius: 10px; width: 90%; max-width: 400px; border: 1px solid var(--accent); margin: 10px auto; }
-        #ritual-log { background: #000; color: #888; padding: 8px; font-size: 12px; height: 40px; border-bottom: 2px solid var(--accent); margin-bottom: 5px; }
-        
-        #roll-btn { padding: 15px; width: 100%; border-radius: 5px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; transition: 0.3s; }
+        .p0 { background: #ff3333; } .p1 { background: #33aaff; } .p2 { background: #33ff77; } .p3 { background: #f0ff33; }
+        .panel { background: var(--panel); padding: 10px; border-radius: 10px; width: 90%; max-width: 400px; border: 1px solid var(--accent); margin: 5px auto; }
+        #ritual-log { background: #000; color: #888; padding: 8px; font-size: 12px; height: 40px; border-bottom: 2px solid var(--accent); }
+        #roll-btn { padding: 15px; width: 100%; border-radius: 5px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; }
         .btn-active { background: #008000; color: white; box-shadow: 0 0 15px #00ff00; }
-        .btn-wait { background: #333; color: #666; cursor: not-allowed; }
-
-        /* Overlay */
-        #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
-        #scare-img { width: 280px; border: 3px solid var(--accent); margin-bottom: 10px; }
-
+        .btn-wait { background: #333; color: #666; }
+        #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 1000; }
+        #res-img { width: 85vw; max-width: 350px; height: 350px; object-fit: cover; border: 4px solid var(--accent); margin-bottom: 15px; }
         .setup-screen { position: fixed; inset: 0; background: #000; z-index: 4000; display: flex; flex-direction: column; justify-content: center; align-items: center; }
     </style>
 </head>
@@ -47,27 +29,41 @@
         <div id="ui-box" class="panel"></div>
     </div>
 
-    <div id="ritual-log">Connecting to the void...</div>
+    <div id="ritual-log">The spirits are watching...</div>
     <div id="game-container"></div>
 
     <div class="panel">
-        <div id="dice-box" style="font-size: 40px; margin-bottom: 5px;">🎲</div>
+        <div id="dice-box" style="font-size: 30px;">🎲</div>
         <button id="roll-btn" class="btn-wait" onclick="playTurn()" disabled>WAITING...</button>
     </div>
 
     <div id="overlay">
-        <img id="scare-img" src="" alt="">
-        <h2 id="event-text" style="color: white; text-align: center; padding: 0 20px;"></h2>
-        <button onclick="closeOverlay()" style="background:red; color:white; padding:10px 20px; border:none; cursor:pointer;">CONTINUE...</button>
+        <img id="res-img" src="" alt="">
+        <h2 id="res-text" style="color:white; padding:0 20px; text-shadow:2px 2px #000;"></h2>
+        <button onclick="closeOverlay()" style="background:white; color:black; padding:12px 35px; border:none; cursor:pointer; font-weight:bold; margin-top:15px;">ACCEPT FATE</button>
     </div>
 
 <script>
     let peer, hostConn, guestConns = [];
     let myRole = -1, isHost = false, turn = 0, positions = [1,1,1,1], maxPlayers = 2;
+    let normalRolls = 0; 
     let sounds = { dice: new Audio('dice.mp3'), jump: new Audio('jump.mp3') };
-    const ghostImages = [
-        "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNGI4Njg1NjNiODhjZDJhZjE4NjhiNjM5ZWU5YjVkZGYzZWRjNjA1ZCZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/3o7TKqnN349PBUtGFO/giphy.gif",
-        "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExNGh3Z3RhYThxYnB3YmR3eHByYnZyeXJ6eHB6eHB6eHB6eHB6JmVwPXYxX2ludGVybmFsX2dpZl9ieV9pZCZjdD1n/12RfP2odT4h4rK/giphy.gif"
+
+    // Categorized Event List
+    const eventList = [
+        // Horror Events (h1-h5)
+        { t: "PUNISHMENT: Dragged back 10 steps!", m: -10, type: 'h', scare: true },
+        { t: "PUNISHMENT: The Void Closes. Back to start!", m: -99, type: 'h', scare: true },
+        { t: "PUNISHMENT: Tripped on a skull! Back 6 steps.", m: -6, type: 'h', scare: true },
+        { t: "PUNISHMENT: Ghostly chains pull you back 15!", m: -15, type: 'h', scare: true },
+        { t: "PUNISHMENT: Trapped in a loop. Move back 12!", m: -12, type: 'h', scare: true },
+        
+        // Funny/Task Events (f1-f5)
+        { t: "REWARD: Found a lucky charm! +12 steps!", m: 12, type: 'f', scare: false },
+        { t: "TASK: You must bark like a dog or move back 5!", m: -5, type: 'f', scare: false },
+        { t: "REWARD: Divine favor! Move forward 15!", m: 15, type: 'f', scare: false },
+        { t: "TASK: Hold your breath for 10 seconds or -4 steps!", m: -4, type: 'f', scare: false },
+        { t: "TASK: Tell a joke. If no one laughs, move back 3.", m: -3, type: 'f', scare: false }
     ];
 
     window.onload = () => {
@@ -78,29 +74,21 @@
 
     function showHostUI() {
         document.getElementById('ui-box').innerHTML = `
-            <p>Select Players</p>
-            <select id="p-count" style="width:100%; padding:10px; background:#000; color:white;">
-                <option value="2">2 Players</option><option value="3">3 Players</option><option value="4">4 Players</option>
-            </select>
-            <button onclick="startAsHost()" style="margin-top:10px; background:red; color:white; padding:10px; width:100%; border:none;">HOST RITUAL</button>`;
+            <p>Setup Ritual</p>
+            <select id="p-count" style="width:100%; padding:10px; background:#000; color:white;"><option value="2">2 Players</option><option value="3">3 Players</option><option value="4">4 Players</option></select>
+            <button onclick="startAsHost()" style="background:red; color:white; padding:10px; width:100%; border:none; margin-top:10px;">HOST</button>`;
     }
 
     function startAsHost() {
-        isHost = true;
-        maxPlayers = parseInt(document.getElementById('p-count').value);
+        isHost = true; maxPlayers = parseInt(document.getElementById('p-count').value);
         peer = new Peer({ config: {'iceServers': [{ url: 'stun:stun.l.google.com:19302' }]}});
         peer.on('open', (id) => {
             myRole = 0;
             const link = window.location.origin + window.location.pathname + '#' + id;
-            document.getElementById('ui-box').innerHTML = `
-                <p style="color:yellow">SHARE LINK:</p>
-                <input type="text" value="${link}" id="lInp" style="width:100%; padding:5px; background:#000; color:red;" readonly>
-                <button onclick="copyL()" style="width:100%; margin-top:5px;">COPY</button>
-                <p id="p-count-txt" style="color:red; margin-top:10px;">Joined: 1 / ${maxPlayers}</p>`;
+            document.getElementById('ui-box').innerHTML = `<p>SHARE LINK:</p><input type="text" value="${link}" id="lInp" style="width:100%;"><button onclick="copyL()">COPY</button>`;
         });
         peer.on('connection', (c) => {
             guestConns.push(c);
-            document.getElementById('p-count-txt').innerText = `Joined: ${guestConns.length + 1} / ${maxPlayers}`;
             c.on('data', (d) => handleData(d));
             if (guestConns.length === maxPlayers - 1) setTimeout(sendInit, 1000);
         });
@@ -118,55 +106,35 @@
         sounds.dice.play();
         let roll = Math.floor(Math.random() * 6) + 1;
         document.getElementById('dice-box').innerText = roll;
+        positions[myRole] += roll;
+        if (positions[myRole] > 100) positions[myRole] = 100 - (positions[myRole] - 100);
         
-        let oldPos = positions[myRole];
-        let newPos = oldPos + roll;
-        let bounce = false;
+        normalRolls++;
+        let force = (normalRolls >= 3);
+        let chance = (Math.random() < 0.35);
 
-        if (newPos > 100) {
-            newPos = 100 - (newPos - 100);
-            bounce = true;
-        }
-        positions[myRole] = newPos;
-
-        // Logic for Surprise Gates (40% chance)
-        let eventTriggered = false;
-        if (newPos > 1 && newPos < 100 && Math.random() < 0.4) {
-            triggerSurprise(newPos, roll, bounce);
-            eventTriggered = true;
+        if ((force || chance) && positions[myRole] < 100) {
+            normalRolls = 0;
+            triggerResult(roll);
         } else {
-            finishMove(roll, bounce);
+            sync(`P${myRole+1} rolled ${roll}. Move to Gate ${positions[myRole]}`);
         }
     }
 
-    function triggerSurprise(pos, roll, bounce) {
-        const events = [
-            { t: "A cold hand touches you. Back 10 steps!", m: -10, horror: true },
-            { t: "Shortcut through a coffin! Forward 15!", m: 15, horror: false },
-            { t: "THE VOID CONSUMES YOU. Back to Gate 1.", m: -(pos-1), horror: true },
-            { t: "Ghostly whispers guide you 5 steps forward.", m: 5, horror: true }
-        ];
-        let ev = events[Math.floor(Math.random() * events.length)];
-        
-        // Update position based on event
+    function triggerResult(roll) {
+        let ev = eventList[Math.floor(Math.random() * eventList.length)];
         positions[myRole] += ev.m;
         if (positions[myRole] < 1) positions[myRole] = 1;
-        if (positions[myRole] > 99) positions[myRole] = 95;
 
-        let msg = `P${myRole+1} rolled ${roll}${bounce?'(Bounce)':''}. EVENT: ${ev.t}`;
-        
-        showOverlay(ev.t, ev.horror, msg);
-    }
+        // Offline Image Logic: h1-h5 or f1-f5
+        let randNum = Math.floor(Math.random() * 5) + 1;
+        let imgName = ev.type + randNum + ".jpg"; 
 
-    function showOverlay(txt, horror, msg) {
-        document.getElementById('event-text').innerText = txt;
-        const img = document.getElementById('scare-img');
-        if(horror) {
-            img.src = ghostImages[Math.floor(Math.random()*ghostImages.length)];
-            img.style.display = "block";
-            sounds.jump.play();
-        } else { img.style.display = "none"; }
-        
+        document.getElementById('res-img').src = imgName;
+        document.getElementById('res-text').innerText = ev.t;
+        if(ev.scare) sounds.jump.play();
+
+        let msg = `P${myRole+1} ROLLED ${roll}: ${ev.t}`;
         document.getElementById('overlay').setAttribute('data-msg', msg);
         document.getElementById('overlay').style.display = "flex";
     }
@@ -174,11 +142,6 @@
     function closeOverlay() {
         let msg = document.getElementById('overlay').getAttribute('data-msg');
         document.getElementById('overlay').style.display = "none";
-        sync(msg);
-    }
-
-    function finishMove(roll, bounce) {
-        let msg = `Player ${myRole+1} rolled ${roll} ${bounce ? '(Bounced back)' : ''} to Gate ${positions[myRole]}`;
         sync(msg);
     }
 
@@ -206,7 +169,7 @@
         const isMyTurn = (turn === myRole);
         const btn = document.getElementById('roll-btn');
         btn.disabled = !isMyTurn;
-        btn.innerText = isMyTurn ? "YOUR TURN - ROLL" : `WAITING FOR P${turn+1}...`;
+        btn.innerText = isMyTurn ? "ROLL DICE" : `P${turn+1}'S TURN`;
         btn.className = isMyTurn ? "btn-active" : "btn-wait";
 
         document.querySelectorAll('.player').forEach(p => p.remove());
@@ -226,7 +189,6 @@
         guestConns.forEach((c, i) => c.send({ type: 'init', role: i+1, max: maxPlayers, pos: positions, turn: turn }));
         document.getElementById('setup-screen').style.display = 'none';
         updateUI();
-        log("Ritual Begun.");
     }
 
     function createBoard() {
