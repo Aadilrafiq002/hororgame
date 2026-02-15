@@ -1,0 +1,11 @@
+{
+  "name": "100 Gates",
+  "short_name": "100Gates",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#ff0000",
+  "icons": [
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
