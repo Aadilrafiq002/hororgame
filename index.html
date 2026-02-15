@@ -303,28 +303,53 @@
             });
         }); 
     }
+function handleHostDeparture() {
+    // If the game is already over or they already saw a result, stop
+    if (document.getElementById('overlay').style.display === "flex") return;
 
-    function handleHostDeparture() {
-        // If the player is already on the winner/loser screen, don't interrupt
-        if (document.getElementById('overlay').style.display === "flex") return;
+    // The Host (Role 0) is gone. 
+    // We mark them as "finished" so the logic knows they are out of the game.
+    finished[0] = true;
 
+    // Check if you are the only one left among the remaining players
+    let othersStillPlaying = false;
+    for (let i = 1; i < maxPlayers; i++) {
+        if (i !== myRole && !finished[i]) {
+            othersStillPlaying = true;
+            break;
+        }
+    }
+
+    if (!othersStillPlaying) {
+        // SUCCESS: You are the winner by default because everyone else (including Host) left
+        handleJudgment(myRole); 
+        
+        // Update the text to be specific to the Host leaving
+        const text = document.getElementById('res-text');
+        text.innerHTML = `<span style="color:gold;">🏆 ESCAPED BY DEFAULT! 🏆</span><br>
+                          <small>The Gate Keeper fled. You are the sole survivor.</small>`;
+    } else {
+        // If there are still other guests in the game, but the host (the server) left, 
+        // the game cannot continue.
         const overlay = document.getElementById('overlay');
         const text = document.getElementById('res-text');
         const img = document.getElementById('res-img');
         
         overlay.style.display = "flex";
         img.src = "https://img.icons8.com/emoji/96/000000/broken-heart.png";
-        text.innerHTML = `<span style="color:red;">GATE KEEPER DISCONNECTED</span><br>
-                          <small>The host has left the void. The ritual is broken.</small>`;
+        text.innerHTML = `<span style="color:red;">LOBBY COLLAPSED</span><br>
+                          <small>The Gate Keeper (Host) has left the void.</small>`;
         
         document.getElementById('event-actions').innerHTML = `
             <button onclick="location.href=window.location.origin + window.location.pathname" 
             style="background:red; color:white; padding:12px; width:100%; border:none; font-weight:bold;">
-            BACK TO MAIN MENU
+            BACK TO MENU
             </button>`;
     }
+}
 
-    async function animateMove(playerIdx, targetPos) {
+
+        async function animateMove(playerIdx, targetPos) {
         isMoving = true;
         let current = positions[playerIdx];
         const step = targetPos > current ? 1 : -1;
