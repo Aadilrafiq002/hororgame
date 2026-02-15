@@ -3,85 +3,71 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>100 GATES: VOID FIXED</title>
+    <title>100 GATES: SABOTAGE & VOID</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg: #050505; --accent: #bc0000; --panel: #1a1a1a; }
         body { background: var(--bg); color: #cfcfcf; font-family: 'Courier New', monospace; margin: 0; text-align: center; overflow-x: hidden; touch-action: manipulation; }
         
-        /* Auth Screen */
+        /* Auth */
         #auth-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         #auth-screen input { padding: 12px; margin: 5px; width: 80%; max-width: 300px; background: #111; border: 1px solid #444; color: white; border-radius: 5px; }
 
-        /* Board Layout */
+        /* Board */
         #game-container { display: grid; grid-template-columns: repeat(10, 1fr); width: 95vw; max-width: 400px; aspect-ratio: 1/1; margin: 5px auto; border: 5px solid #333; background: #222; }
         .cell { border: 0.1px solid #222; display: flex; align-items: center; justify-content: center; font-size: 10px; position: relative; background: #121212; }
-        .player { width: 18px; height: 18px; border-radius: 50%; position: absolute; border: 2px solid #000; transition: 0.5s; z-index: 10; }
-        .p0 { background: #ff3333; } .p1 { background: #33aaff; } .p2 { background: #33ff77; } .p3 { background: #f0ff33; }
+        .player { width: 18px; height: 18px; border-radius: 50%; position: absolute; border: 2px solid #000; transition: 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); z-index: 10; }
+        .p0 { background: #ff3333; box-shadow: 0 0 10px #ff3333; } 
+        .p1 { background: #33aaff; box-shadow: 0 0 10px #33aaff; } 
+        .p2 { background: #33ff77; box-shadow: 0 0 10px #33ff77; } 
+        .p3 { background: #f0ff33; box-shadow: 0 0 10px #f0ff33; }
         
         #ritual-log { background: #000; color: #888; padding: 8px; font-size: 12px; height: 35px; border-bottom: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; }
-        #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 5000; }
-        .event-card { width: 90%; max-width: 350px; text-align: center; }
-        #res-img { width: 100%; height: auto; max-height: 350px; object-fit: cover; border: 4px solid var(--accent); border-radius: 5px; margin-bottom: 10px; }
-        #finish-screen { position: fixed; inset: 0; background: #000; display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
+        #inv-display { color: gold; font-weight: bold; margin-top: 5px; }
 
-        #chat-window { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 450px; background: #111; z-index: 2000; border-top: 2px solid var(--accent); }
-        .emoji-grid { display: grid; grid-template-columns: repeat(5, 1fr); padding: 10px; gap: 5px; }
-        .emoji-grid button { font-size: 24px; padding: 12px; background: #222; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        /* Overlays */
+        #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 5000; }
+        .event-card { width: 90%; max-width: 350px; text-align: center; }
+        #res-img { width: 100%; height: auto; border: 4px solid var(--accent); border-radius: 5px; margin-bottom: 10px; }
         
         .panel { background: var(--panel); padding: 10px; border-radius: 10px; width: 90%; max-width: 400px; border: 1px solid var(--accent); margin: 5px auto; }
-        #roll-btn { padding: 15px; width: 100%; border-radius: 5px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; }
+        #roll-btn { padding: 15px; width: 100%; border-radius: 5px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; transition: 0.3s; }
         .btn-active { background: #008000; color: white; box-shadow: 0 0 15px #00ff00; }
-        .btn-wait { background: #333; color: #666; }
-        .btn-finished { background: #111; color: gold; border: 1px solid gold; cursor: default; }
-        #emoji-flash { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9000; pointer-events: none; }
+        .btn-wait { background: #222; color: #555; }
+        
+        #emoji-flash { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9000; pointer-events: none; }
+        #flash-content { font-size: 100px; }
     </style>
 </head>
 <body>
 
     <div id="auth-screen">
-        <h1 style="color:var(--accent); font-size: 40px;">100 GATES</h1>
+        <h1 style="color:var(--accent); font-size: 40px; margin-bottom:0;">100 GATES</h1>
+        <p style="color:#555; margin-bottom:20px;">SABOTAGE & VOID</p>
         <input type="text" id="user-name" placeholder="Enter Your Name">
         <input type="password" id="admin-pass" placeholder="Host Password">
-        <button onclick="handleAuth()" style="width:85%; max-width:320px; padding:15px; background:var(--accent); color:white; border:none; font-weight:bold; cursor:pointer;">ENTER REALM</button>
+        <button onclick="handleAuth()" style="width:85%; max-width:320px; padding:15px; background:var(--accent); color:white; border:none; font-weight:bold; cursor:pointer; margin-top:10px;">ENTER REALM</button>
     </div>
 
-    <div id="finish-screen">
-        <img id="finish-img" style="width:80%; max-width:300px; border:3px solid gold;">
-        <h1 id="finish-title" style="font-size:35px; margin:10px 0;"></h1>
-        <p id="finish-joke" style="font-size:18px; padding:0 20px; font-style: italic;"></p>
-        <div id="finish-btn-area"></div>
-    </div>
-
-    <div id="emoji-flash"><p id="flash-content" style="font-size:120px; margin:0;"></p><p id="flash-user" style="color:red; font-size:20px;"></p></div>
+    <div id="emoji-flash"><p id="flash-content"></p><p id="flash-user" style="color:red;"></p></div>
 
     <div id="setup-screen" style="position:fixed; inset:0; background:#000; z-index:8000; display:none; flex-direction:column; justify-content:center; align-items:center;">
         <div id="ui-box" class="panel"></div>
     </div>
 
-    <div id="ritual-log">Waiting for spirits...</div>
-    <div id="inv-display" style="color:gold; font-weight:bold; font-size:18px; margin-top:5px;">CARDS: 0</div>
+    <div id="ritual-log">Summoning spirits...</div>
+    <div id="inv-display">CARDS: 0</div>
     <div id="game-container"></div>
 
-    <div class="panel" style="margin-bottom: 120px;">
+    <div class="panel" style="margin-bottom: 20px;">
         <div id="dice-box" style="font-size: 24px; margin-bottom: 5px;">🎲</div>
         <button id="roll-btn" class="btn-wait" onclick="playTurn()" disabled>WAITING...</button>
     </div>
 
-    <div id="chat-window">
-        <div class="emoji-grid">
-            <button onclick="sendEmoji('👻')">👻</button><button onclick="sendEmoji('💀')">💀</button>
-            <button onclick="sendEmoji('😱')">😱</button><button onclick="sendEmoji('🔥')">🔥</button>
-            <button onclick="sendEmoji('😈')">😈</button><button onclick="sendEmoji('😂')">😂</button>
-            <button onclick="sendEmoji('🙏')">🙏</button><button onclick="sendEmoji('🤫')">🤫</button>
-            <button onclick="sendEmoji('👎')">👎</button><button onclick="sendEmoji('🤡')">🤡</button>
-        </div>
-    </div>
-
     <div id="overlay">
         <div class="event-card">
-            <img id="res-img" src="" alt="">
-            <h2 id="res-text" style="color:white; margin:10px 0; text-shadow:2px 2px #000;"></h2>
+            <img id="res-img" src="">
+            <h2 id="res-text"></h2>
             <div id="event-actions"></div>
         </div>
     </div>
@@ -98,55 +84,51 @@
     const sounds = { dice: new Audio('dice.mp3'), jump: new Audio('jump.mp3'), noob: new Audio('noob.mp3') };
     function playSound(n) { const s = sounds[n].cloneNode(); s.play().catch(()=>{}); }
 
-    window.onload = () => {
-        const savedName = localStorage.getItem('gate_username');
-        if(savedName) document.getElementById('user-name').value = savedName;
-    };
-
     function handleAuth() {
-        const nameInput = document.getElementById('user-name').value.trim();
-        const passInput = document.getElementById('admin-pass').value.trim();
+        const name = document.getElementById('user-name').value.trim();
+        const pass = document.getElementById('admin-pass').value.trim();
         const rID = window.location.hash.substring(1);
-        if(!nameInput) return alert("Enter a name!");
-        localStorage.setItem('gate_username', nameInput);
-        playerNames[0] = nameInput;
+        if(!name) return alert("Identify yourself!");
+        localStorage.setItem('gate_username', name);
 
-        if (nameInput.toLowerCase() === ADMIN_USER && passInput === ADMIN_PASS) {
+        if (name.toLowerCase() === ADMIN_USER && pass === ADMIN_PASS) {
             isHost = true; document.getElementById('auth-screen').style.display = 'none'; showHostUI();
         } else if (rID) {
-            isHost = false; document.getElementById('auth-screen').style.display = 'none'; startAsGuest(rID, nameInput);
+            isHost = false; document.getElementById('auth-screen').style.display = 'none'; startAsGuest(rID, name);
         } else {
-            alert("Wrong credentials! Guest must join via Link.");
+            alert("To Host: Enter Admin Pass. To Join: Use the Link.");
         }
     }
 
     function showHostUI() {
         document.getElementById('setup-screen').style.display = 'flex';
         document.getElementById('ui-box').innerHTML = `
-            <p>Welcome, Master Aadil</p>
-            <select id="p-count" style="width:100%; padding:15px; background:#000; color:white;">
+            <p style="color:gold;">Master ${localStorage.getItem('gate_username')}</p>
+            <select id="p-count" style="width:100%; padding:15px; background:#000; color:white; border:1px solid red;">
                 <option value="2">2 Players</option><option value="3">3 Players</option><option value="4">4 Players</option>
             </select>
-            <button onclick="startAsHost()" style="background:red; color:white; width:100%; margin-top:15px; padding:15px; border:none; font-weight:bold; cursor:pointer;">ACTIVATE GATES</button>`;
+            <button onclick="startAsHost()" style="background:red; color:white; width:100%; margin-top:15px; padding:15px; border:none; font-weight:bold; cursor:pointer;">OPEN GATES</button>`;
     }
 
     function startAsHost() {
         maxPlayers = parseInt(document.getElementById('p-count').value);
+        playerNames[0] = localStorage.getItem('gate_username');
         peer = new Peer();
         peer.on('open', (id) => { 
             myRole = 0; 
             const link = window.location.origin + window.location.pathname + '#' + id;
             document.getElementById('ui-box').innerHTML = `
-                <p style="font-size:12px">SHARE LINK:</p>
-                <input type="text" value="${link}" id="lInp" readonly style="width:100%; padding:8px; background:#000; color:white;">
-                <button onclick="copyL()" style="width:100%; margin-top:10px; padding:10px;">COPY LINK</button>
-                <p id="wait-msg">Waiting for ${maxPlayers-1} more...</p>`;
+                <p style="font-size:12px">SEND THIS LINK TO PLAYERS:</p>
+                <input type="text" value="${link}" id="lInp" readonly style="width:100%; padding:8px; background:#000; color:white; border:1px solid #444;">
+                <button onclick="copyL()" style="width:100%; margin-top:10px; padding:10px; background:#333; color:white; border:none;">COPY LINK</button>
+                <p id="wait-msg" style="color:red; margin-top:15px;">Waiting for players (0/${maxPlayers-1})...</p>`;
         });
         peer.on('connection', (c) => { 
             c.on('data', d => {
                 if(d.type === 'join_request') {
                     guestConns.push(c);
                     playerNames[guestConns.length] = d.name;
+                    document.getElementById('wait-msg').innerText = `Waiting for players (${guestConns.length}/${maxPlayers-1})...`;
                     if(guestConns.length === maxPlayers-1) sendInit();
                 }
                 handleData(d);
@@ -161,6 +143,7 @@
             hostConn.on('open', () => { hostConn.send({ type: 'join_request', name: myName }); });
             hostConn.on('data', d => handleData(d)); 
         }); 
+        document.getElementById('ritual-log').innerText = "Entering the Void...";
     }
 
     function playTurn() {
@@ -173,105 +156,140 @@
 
         if (positions[myRole] >= 100) { 
             positions[myRole] = 100; finished[myRole] = true; updateUI();
-            const d = { type: 'finish', winner: myRole };
+            const d = { type: 'finish', winner: myRole, msg: `${playerNames[myRole]} ESCAPED!` };
             if (isHost) broadcast(d); else hostConn.send(d);
-            showFinishScreen(true, myRole);
             return; 
         }
-        if (personalRolls >= 2 || Math.random() < 0.2) { personalRolls = 0; triggerResult(roll); } 
-        else { sync(`${playerNames[myRole]} moved ${roll}`); }
+
+        // Logic for Encounter
+        if (personalRolls >= 2 || Math.random() < 0.25) { 
+            personalRolls = 0; 
+            triggerResult(); 
+        } else { 
+            sync(`${playerNames[myRole]} moved to ${positions[myRole]}`); 
+        }
     }
 
-    function triggerResult(roll) {
+    function triggerResult() {
         const overlay = document.getElementById('overlay');
         const actions = document.getElementById('event-actions');
         overlay.style.display = "flex";
-        let encounterRoll = Math.random(); 
-        let isTrap = encounterRoll < 0.60;
-        let isVoid = encounterRoll < 0.15;
+        
+        let isTrap = Math.random() < 0.65;
+        let isVoid = isTrap && Math.random() < 0.30; // 30% of traps are VOIDS
         let randNum = Math.floor(Math.random() * 5) + 1;
         document.getElementById('res-img').src = (isTrap ? 'h' : 'f') + randNum + ".jpg";
 
         if (!isTrap) {
             inventory.passes++;
-            document.getElementById('res-text').style.color = "gold"; document.getElementById('res-text').innerText = "LOOT: Sabotage Card!";
-            actions.innerHTML = `<button onclick="closeOverlaySync('Found a card')" style="width:100%; padding:15px; background:green; color:white;">COLLECT</button>`;
+            document.getElementById('res-text').style.color = "gold"; document.getElementById('res-text').innerText = "SABOTAGE CARD FOUND!";
+            actions.innerHTML = `<button onclick="closeOverlaySync('Found a secret')" style="width:100%; padding:15px; background:green; color:white; border:none; font-weight:bold;">COLLECT</button>`;
         } else {
             playSound('jump');
             if (isVoid) {
-                document.getElementById('res-text').style.color = "red"; document.getElementById('res-text').innerText = "VOID: BACK TO START!";
-                let btns = `<button onclick="takeVoid()" style="width:100%; padding:15px; background:red; color:white;">ACCEPT DOOM</button>`;
+                document.getElementById('res-text').style.color = "red"; document.getElementById('res-text').innerText = "THE VOID CONSUMES YOU!";
+                let btns = `<button onclick="takeVoid()" style="width:100%; padding:15px; background:red; color:white; border:none; font-weight:bold;">ACCEPT STARTING OVER</button>`;
                 if (inventory.passes > 0) {
-                    for (let i=0; i<maxPlayers; i++) if(i !== myRole && !finished[i]) btns += `<button onclick="useVoidPass(${i})" style="background:black; color:red; margin-top:5px; padding:12px; width:100%; border:2px solid red;">PASS TO ${playerNames[i]}</button>`;
+                    for (let i=0; i<maxPlayers; i++) {
+                        if(i !== myRole && !finished[i]) {
+                            btns += `<button onclick="useSabotage(${i}, true)" style="background:black; color:red; margin-top:8px; padding:12px; width:100%; border:2px solid red; font-weight:bold;">SABOTAGE ${playerNames[i].toUpperCase()}</button>`;
+                        }
+                    }
                 }
                 actions.innerHTML = btns;
             } else {
                 document.getElementById('res-text').style.color = "white"; document.getElementById('res-text').innerText = "TRAP: -10 STEPS!";
-                let btns = `<button onclick="takePunishment()" style="width:100%; padding:15px;">ACCEPT</button>`;
+                let btns = `<button onclick="takeTrap()" style="width:100%; padding:15px; background:#444; color:white; border:none;">TAKE PENALTY</button>`;
                 if (inventory.passes > 0) {
-                    for (let i=0; i<maxPlayers; i++) if(i !== myRole && !finished[i]) btns += `<button onclick="usePass(${i})" style="background:purple; color:white; margin-top:5px; padding:12px; width:100%;">SABOTAGE ${playerNames[i]}</button>`;
+                    for (let i=0; i<maxPlayers; i++) {
+                        if(i !== myRole && !finished[i]) {
+                            btns += `<button onclick="useSabotage(${i}, false)" style="background:purple; color:white; margin-top:8px; padding:12px; width:100%; border:none; font-weight:bold;">SABOTAGE ${playerNames[i].toUpperCase()}</button>`;
+                        }
+                    }
                 }
                 actions.innerHTML = btns;
             }
         }
     }
 
-    // VOID FIX: The message 'sabotage_void' now explicitly sets position to 1
-    function useVoidPass(target) { 
-        inventory.passes--; 
-        document.getElementById('overlay').style.display = "none"; 
-        const d = { type: 'sabotage_void', to: target, msg: `${playerNames[myRole]} SENT ${playerNames[target]} TO START!` }; 
-        if (isHost) broadcast(d); else hostConn.send(d); 
-        sync(`Used Void on ${playerNames[target]}`); 
+    // TARGETED SABOTAGE: Only moves the target, not the sender
+    function useSabotage(targetIdx, isVoid) {
+        inventory.passes--;
+        document.getElementById('overlay').style.display = "none";
+        
+        let oldPos = positions[targetIdx];
+        if (isVoid) positions[targetIdx] = 1;
+        else positions[targetIdx] = Math.max(1, positions[targetIdx] - 10);
+
+        const d = { 
+            type: isVoid ? 'sabotage_void' : 'sabotage', 
+            to: targetIdx, 
+            newPos: positions[targetIdx],
+            msg: `${playerNames[myRole]} sent ${playerNames[targetIdx]} back!` 
+        };
+
+        if (isHost) broadcast(d); else hostConn.send(d);
+        sync(d.msg);
     }
 
-    function usePass(target) { 
-        inventory.passes--; 
-        document.getElementById('overlay').style.display = "none"; 
-        const d = { type: 'sabotage', to: target }; 
-        if (isHost) broadcast(d); else hostConn.send(d); 
-        sync(`Sabotaged ${playerNames[target]}`); 
-    }
-
-    function takeVoid() { positions[myRole] = 1; document.getElementById('overlay').style.display = "none"; sync(`Hit the Void!`); }
-    function takePunishment() { positions[myRole] = Math.max(1, positions[myRole]-10); document.getElementById('overlay').style.display = "none"; sync(`Hit a trap!`); }
+    function takeVoid() { positions[myRole] = 1; document.getElementById('overlay').style.display = "none"; sync(`Pushed into the Void!`); }
+    function takeTrap() { positions[myRole] = Math.max(1, positions[myRole]-10); document.getElementById('overlay').style.display = "none"; sync(`Hit a trap!`); }
 
     function handleData(d) {
-        if (isHost) guestConns.forEach(c => { if(c.peer !== d.fromPeer) c.send(d); });
-        if (d.type === 'chat') {
-            const f = document.getElementById('emoji-flash');
-            document.getElementById('flash-content').innerText = d.text;
-            document.getElementById('flash-user').innerText = d.sender;
-            f.style.display = "flex";
-            setTimeout(() => f.style.display = "none", 1500);
+        // Relay logic for Host
+        if (isHost) {
+            guestConns.forEach(c => { if(c.peer !== d.fromPeer) c.send(d); });
         }
-        if (d.type === 'init') { myRole = d.role; maxPlayers = d.max; positions = d.pos; turn = d.turn; finished = d.fin; playerNames = d.names; document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
-        if (d.type === 'sync') { positions = d.pos; turn = d.turn; document.getElementById('ritual-log').innerText = d.msg; updateUI(); }
-        if (d.type === 'finish') { finished[d.winner] = true; positions[d.winner] = 100; showFinishScreen(false, d.winner); updateUI(); }
-        
-        // VOID Logic Fix:
-        if (d.type === 'sabotage_void') { 
-            positions[d.to] = 1; 
-            if(d.to === myRole) playSound('noob'); 
-            updateUI(); 
+
+        if (d.type === 'sabotage_void' || d.type === 'sabotage') {
+            positions[d.to] = d.newPos; // Explicitly update only the victim's position
+            if (d.to === myRole) playSound('noob');
+            updateUI();
         }
-        if (d.type === 'sabotage') { 
-            positions[d.to] = Math.max(1, positions[d.to]-10); 
-            if(d.to === myRole) playSound('noob'); 
+
+        if (d.type === 'sync') {
+            positions = d.pos;
+            turn = d.turn;
+            document.getElementById('ritual-log').innerText = d.msg;
+            updateUI();
+        }
+
+        if (d.type === 'init') { 
+            myRole = d.role; maxPlayers = d.max; positions = d.pos; turn = d.turn; finished = d.fin; playerNames = d.names; 
+            document.getElementById('setup-screen').style.display = 'none'; updateUI(); 
+        }
+
+        if (d.type === 'finish') { 
+            finished[d.winner] = true; positions[d.winner] = 100; 
+            alert(`${playerNames[d.winner]} HAS WON!`);
             updateUI(); 
         }
     }
 
     function broadcast(d) { handleData(d); guestConns.forEach(c => c.send(d)); }
-    function sync(msg) { nextTurn(); const d = { type: 'sync', pos: positions, turn: turn, msg: msg, fin: finished }; if (isHost) broadcast(d); else hostConn.send(d); updateUI(); }
-    function nextTurn() { let s = 0; do { turn = (turn + 1) % maxPlayers; s++; } while (finished[turn] && s < 10); }
+    
+    function sync(msg) { 
+        nextTurn(); 
+        const d = { type: 'sync', pos: positions, turn: turn, msg: msg, fin: finished }; 
+        if (isHost) broadcast(d); else hostConn.send(d); 
+        updateUI(); 
+    }
+
+    function nextTurn() { 
+        let s = 0; 
+        do { turn = (turn + 1) % maxPlayers; s++; } 
+        while (finished[turn] && s < 10); 
+    }
 
     function updateUI() {
         const active = (turn === myRole && !finished[myRole]);
         const btn = document.getElementById('roll-btn');
-        if(finished[myRole]) { btn.disabled = true; btn.innerText = "🏆 FINISHED"; btn.className = "btn-finished"; }
-        else { btn.disabled = !active; btn.innerText = active ? "ROLL DICE" : `${playerNames[turn]}'S TURN`; btn.className = active ? "btn-active" : "btn-wait"; }
+        btn.disabled = !active;
+        btn.innerText = active ? "ROLL DICE" : `${playerNames[turn].toUpperCase()}'S TURN`;
+        btn.className = active ? "btn-active" : "btn-wait";
+        
         document.getElementById('inv-display').innerText = `CARDS: ${inventory.passes}`;
+        
         document.querySelectorAll('.player').forEach(p => p.remove());
         positions.slice(0, maxPlayers).forEach((pos, i) => {
             const cell = document.getElementById('cell-' + pos);
@@ -283,24 +301,31 @@
         });
     }
 
-    function showFinishScreen(isMe, idx) {
-        const screen = document.getElementById('finish-screen');
-        screen.style.display = "flex";
-        document.getElementById('finish-title').innerText = isMe ? "CONGRATS!" : `${playerNames[idx]} FINISHED!`;
-        document.getElementById('finish-img').src = isMe ? "f1.jpg" : "h1.jpg";
-        document.getElementById('finish-btn-area').innerHTML = `<button onclick="location.reload()" style="padding:15px; background:gold;">NEW GAME</button>`;
+    function copyL() { 
+        const i = document.getElementById('lInp'); i.select(); 
+        navigator.clipboard.writeText(i.value); 
+        alert("Link Copied! Send it to your friends."); 
+    }
+    
+    function closeOverlaySync(m) { document.getElementById('overlay').style.display="none"; sync(m); }
+    
+    function sendInit() { 
+        guestConns.forEach((c, i) => c.send({ type: 'init', role: i+1, max: maxPlayers, pos: positions, turn: turn, fin: finished, names: playerNames })); 
+        document.getElementById('setup-screen').style.display = 'none'; 
+        updateUI(); 
     }
 
-    function sendEmoji(e) { const m = { type: 'chat', sender: playerNames[myRole], text: e }; if (isHost) broadcast(m); else hostConn.send(m); }
-    function closeOverlaySync(m) { document.getElementById('overlay').style.display="none"; sync(m); }
-    function copyL() { const i = document.getElementById('lInp'); i.select(); navigator.clipboard.writeText(i.value); alert("Link Copied!"); }
-    function sendInit() { guestConns.forEach((c, i) => c.send({ type: 'init', role: i+1, max: maxPlayers, pos: positions, turn: turn, fin: finished, names: playerNames })); document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
-
+    // Build Board
     const board = document.getElementById('game-container');
     for (let i = 0; i < 100; i++) {
         let row = Math.floor(i / 10), col = i % 10, num;
-        if (row % 2 === 0) num = 100 - (row * 10 + col); else num = 100 - (row * 10 + (9 - col));
-        let cell = document.createElement('div'); cell.className = 'cell'; cell.id = 'cell-' + num; cell.innerText = num; board.appendChild(cell);
+        if (row % 2 === 0) num = 100 - (row * 10 + col); 
+        else num = 100 - (row * 10 + (9 - col));
+        let cell = document.createElement('div'); 
+        cell.className = 'cell'; 
+        cell.id = 'cell-' + num; 
+        cell.innerText = num; 
+        board.appendChild(cell);
     }
 </script>
 </body>
