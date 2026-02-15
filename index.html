@@ -456,30 +456,39 @@
     }
 
     // UPDATED: Host Listeners for Reconnection and Disconnects
+   // NEW: Heartbeat to detect "Silent" disconnects faster
     function setupHostListeners() {
         peer.on('connection', c => {
-            c.on('data', d => {
-                if(d.type === 'join_request') {
-                    // Reconnection Logic
-                    let existingIdx = playerNames.indexOf(d.name);
-                    if (existingIdx !== -1 && disconnectTimers[existingIdx]) {
-                        clearTimeout(disconnectTimers[existingIdx]);
-                        delete disconnectTimers[existingIdx];
-                        guestConns[existingIdx - 1] = c;
-                        broadcast({ type: 'sync', pos: positions, turn: turn, msg: `${d.name} RETURNED!`, fin: finished });
-                        return;
+            c.on('open', () => {
+                // Monitor the connection state closely
+                let checkInterval = setInterval(() => {
+                    if (!c.open) {
+                        clearInterval(checkInterval);
+                        handleDisconnect(c.peer);
                     }
-                    // Fresh Join
-                    if (guestConns.length < maxPlayers - 1) { 
-                        guestConns.push(c); 
-                        playerNames[guestConns.length] = d.name; 
-                        if(guestConns.length === maxPlayers-1) sendInit(); 
+                }, 1000);
+
+                c.on('data', d => {
+                    if(d.type === 'join_request') {
+                        let existingIdx = playerNames.indexOf(d.name);
+                        if (existingIdx !== -1 && disconnectTimers[existingIdx]) {
+                            clearTimeout(disconnectTimers[existingIdx]);
+                            delete disconnectTimers[existingIdx];
+                            guestConns[existingIdx - 1] = c;
+                            broadcast({ type: 'sync', pos: positions, turn: turn, msg: `${d.name} RETURNED!`, fin: finished });
+                            return;
+                        }
+                        if (guestConns.length < maxPlayers - 1) { 
+                            guestConns.push(c); 
+                            playerNames[guestConns.length] = d.name; 
+                            if(guestConns.length === maxPlayers-1) sendInit(); 
+                        }
                     }
-                }
-                handleData(d);
+                    handleData(d);
+                });
+                
+                c.on('close', () => handleDisconnect(c.peer));
             });
-            c.on('close', () => handleDisconnect(c.peer));
-            c.on('error', () => handleDisconnect(c.peer));
         });
     }
 
@@ -487,29 +496,49 @@
         if (!isHost) return;
         let idx = guestConns.findIndex(c => c && c.peer === peerId);
         if (idx === -1) return;
-        let pIdx = idx + 1;
+        
+        let pIdx = idx + 1; // Index of the player who left
+        
+        // Count how many players haven't finished yet
+        let stillPlaying = [];
+        for(let i=0; i < maxPlayers; i++) {
+            if(!finished[i] && i !== pIdx) stillPlaying.push(i);
+        }
 
-        // Count active (not finished) players
-        let active = finished.slice(0, maxPlayers).filter(f => !f).length;
-
-        if (active <= 2) {
-            // End game immediately for 2 players
-            let winnerIdx = (pIdx === 0) ? 1 : 0; 
-            for(let i=0; i<maxPlayers; i++) if(!finished[i] && i !== pIdx) winnerIdx = i;
+        // 1. If only 1 player is left (2 player game), they win immediately
+        if (stillPlaying.length === 1) {
+            let winnerIdx = stillPlaying[0];
             broadcast({ type: 'finish', winner: winnerIdx });
-        } else {
-            // Multiplayer 20s timer
-            broadcast({ type: 'sync', pos: positions, turn: turn, msg: `${playerNames[pIdx]} left! 20s to return...`, fin: finished });
+            handleJudgment(winnerIdx);
+            return;
+        }
+
+        // 2. Multiplayer: Start 20s Grace Period
+        if (!finished[pIdx]) {
+            broadcast({ type: 'sync', pos: positions, turn: turn, msg: `⚠️ ${playerNames[pIdx]} left! 20s to return...`, fin: finished });
+            
+            // Clear existing timer if any
+            if(disconnectTimers[pIdx]) clearTimeout(disconnectTimers[pIdx]);
+            
             disconnectTimers[pIdx] = setTimeout(() => {
                 if (!finished[pIdx]) {
                     finished[pIdx] = true;
                     if (turn === pIdx) nextTurn();
-                    broadcast({ type: 'sync', pos: positions, turn: turn, msg: `${playerNames[pIdx]} vanished!`, fin: finished });
+                    broadcast({ type: 'sync', pos: positions, turn: turn, msg: `💀 ${playerNames[pIdx]} was timed out!`, fin: finished });
                 }
                 delete disconnectTimers[pIdx];
             }, 20000);
         }
     }
+
+    // NEW: Force notification when tab is closed
+    window.addEventListener('beforeunload', () => {
+        if (isHost) {
+            broadcast({ type: 'chat', sender: 'SYSTEM', text: 'GATE KEEPER HAS LEFT. LOBBY CLOSED.' });
+        } else if (hostConn) {
+            hostConn.close();
+        }
+    });
 
     function startAsGuest(id, myName) { 
         peer = new Peer(); 
