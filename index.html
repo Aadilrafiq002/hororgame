@@ -3,236 +3,304 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>100 GATES: APEX</title>
+    <title>100 GATES: INFERNAL EDITION</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        :root { --bg: #000; --accent: #bc0000; --gold: #ffd700; }
-        body { background: var(--bg); color: #eee; font-family: sans-serif; margin: 0; text-align: center; overflow: hidden; touch-action: manipulation; }
+        :root { --bg: #050505; --accent: #bc0000; --panel: #1a1a1a; --fire: #ff4500; }
+        body { background: var(--bg); color: #cfcfcf; font-family: 'Courier New', monospace; margin: 0; text-align: center; overflow-x: hidden; touch-action: manipulation; }
         
-        /* Screens - No Transitions */
-        #auth-screen, #char-screen, #win-overlay, #setup-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        input { padding: 12px; margin: 10px; width: 250px; background: #111; border: 1px solid #444; color: white; }
+        /* Auth */
+        #auth-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        #auth-screen input { padding: 12px; margin: 5px; width: 80%; max-width: 300px; background: #111; border: 1px solid #444; color: white; border-radius: 5px; }
 
-        /* Character Selection */
-        .char-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; width: 90%; max-width: 400px; }
-        .char-card { background: #111; border: 2px solid #333; padding: 15px; cursor: pointer; }
-        .char-card.selected { border-color: var(--gold); background: #222; }
-        .char-card.taken { opacity: 0.1; pointer-events: none; }
-
-        /* Symbols as Static Dots */
-        .player { width: 22px; height: 22px; position: absolute; z-index: 50; display: flex; align-items: center; justify-content: center; font-size: 16px; border-radius: 50%; background: #111; border: 1px solid #fff; }
-        .active-turn { border: 2px solid var(--gold); background: #332b00; z-index: 100; }
-
-        /* Board - Solid Rendering */
-        #game-container { display: grid; grid-template-columns: repeat(10, 1fr); width: 90vmin; height: 90vmin; max-width: 450px; max-height: 450px; margin: 5px auto; border: 2px solid #222; background: #000; position: relative; }
-        .cell { border: 0.1px solid #111; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #333; position: relative; }
+        /* Board & Fire Effect */
+        #game-container { display: grid; grid-template-columns: repeat(10, 1fr); width: 95vw; max-width: 400px; aspect-ratio: 1/1; margin: 5px auto; border: 5px solid #333; background: #000; }
+        .cell { border: 0.1px solid #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 10px; position: relative; background: #080808; color: #444; overflow: hidden; }
         
-        /* Fixed Emoji Keyboard */
-        .emoji-bar { position: fixed; bottom: 0; width: 100%; background: #050505; display: flex; justify-content: center; gap: 15px; padding: 12px; border-top: 1px solid #222; z-index: 9000; }
-        .emoji-bar button { font-size: 24px; background: none; border: none; cursor: pointer; color: white; }
+        /* The Fire Flicker */
+        .fire-glow { 
+            position: absolute; inset: 0; opacity: 0; 
+            background: radial-gradient(circle, rgba(255,69,0,0.3) 0%, transparent 70%); 
+        }
 
-        /* Panel */
-        .panel { background: #000; padding: 10px; border-top: 1px solid #222; width: 100%; position: fixed; bottom: 70px; left: 0; }
-        #roll-btn { padding: 15px; width: 80%; max-width: 300px; font-size: 18px; font-weight: bold; border: none; cursor: pointer; }
-        .btn-active { background: var(--accent); color: white; }
-        .btn-wait { background: #1a1a1a; color: #444; }
+        /* Symbol System - NO ANIMATION */
+        .player { width: 18px; height: 18px; border-radius: 50%; position: absolute; border: 2px solid #000; z-index: 10; transform: none !important; transition: none !important; }
+        .p0 { background: #ff3333; box-shadow: 0 0 10px #f00; } 
+        .p1 { background: #33aaff; box-shadow: 0 0 10px #0af; } 
+        .p2 { background: #33ff77; box-shadow: 0 0 10px #0f7; } 
+        .p3 { background: #f0ff33; box-shadow: 0 0 10px #ff0; }
+        
+        #ritual-log { background: #000; color: #888; padding: 8px; font-size: 12px; height: 35px; border-bottom: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; }
 
-        /* Overlays */
-        #emoji-flash { position: fixed; inset: 0; display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 10000; pointer-events: none; background: rgba(0,0,0,0.8); }
-        #overlay { position: fixed; inset: 0; background: #000; display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9500; }
-        #res-img { width: 80%; max-width: 350px; border: 2px solid var(--accent); }
+        /* Jumpscare / Overlays */
+        #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9000; padding: 20px; }
+        .event-card { width: 95%; max-width: 380px; text-align: center; background: #000; border: 2px solid var(--accent); padding: 15px; border-radius: 10px; }
+        #res-img { width: 100%; max-height: 35vh; object-fit: contain; margin-bottom: 15px; display: block; }
+        
+        .panel { background: var(--panel); padding: 10px; border-radius: 10px; width: 90%; max-width: 400px; border: 1px solid var(--accent); margin: 5px auto; }
+        #roll-btn { padding: 15px; width: 100%; border-radius: 5px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; }
+        .btn-active { background: #008000; color: white; }
+        .btn-wait { background: #222; color: #555; }
+        
+        #chat-window { position: fixed; bottom: 0; left: 0; right: 0; background: #111; z-index: 8000; border-top: 3px solid var(--accent); padding-bottom: env(safe-area-inset-bottom); }
+        .emoji-grid { display: grid; grid-template-columns: repeat(5, 1fr); max-width: 500px; margin: 0 auto; padding: 10px; gap: 8px; }
+        .emoji-grid button { font-size: 28px; padding: 12px; background: #222; border: 1px solid #444; color: white; border-radius: 8px; cursor: pointer; }
+
+        #emoji-flash { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9500; pointer-events: none; }
+        #flash-content { font-size: 100px; }
     </style>
 </head>
 <body>
 
     <div id="auth-screen">
-        <h1 style="color:var(--accent);">100 GATES</h1>
-        <input type="text" id="user-name" placeholder="NAME">
-        <input type="password" id="admin-pass" placeholder="HOST KEY">
-        <button onclick="handleAuth()" style="padding:15px; width:250px; background:var(--accent); color:white; border:none; cursor:pointer;">ENTER</button>
+        <h1 style="color:var(--accent); font-size: 40px; letter-spacing: 5px;">100 GATES</h1>
+        <input type="text" id="user-name" placeholder="Name">
+        <input type="password" id="admin-pass" placeholder="Admin Key">
+        <button onclick="handleAuth()" style="width:80%; padding:15px; background:var(--accent); color:white; border:none; font-weight:bold;">ENTER THE VOID</button>
     </div>
 
-    <div id="setup-screen" style="display:none;">
-        <h3>PLAYER COUNT</h3>
-        <select id="p-select" style="padding:15px; width:200px;"><option value="2">2 Players</option><option value="3">3 Players</option><option value="4">4 Players</option></select>
-        <button onclick="initHost()" style="margin-top:20px; padding:15px; width:200px; background:var(--accent); color:white; border:none; cursor:pointer;">CREATE</button>
+    <div id="emoji-flash"><p id="flash-content"></p><p id="flash-user" style="color:red; font-size: 20px;"></p></div>
+
+    <div id="setup-screen" style="position:fixed; inset:0; background:#000; z-index:8500; display:none; flex-direction:column; justify-content:center; align-items:center;">
+        <div id="ui-box" class="panel"></div>
     </div>
 
-    <div id="char-screen" style="display:none;">
-        <h2 style="color:var(--gold);">SELECT SPIRIT</h2>
-        <div class="char-grid" id="char-options">
-            <div class="char-card" id="card-0" onclick="selectChar(0)">🐉</div>
-            <div class="char-card" id="card-1" onclick="selectChar(1)">🦁</div>
-            <div class="char-card" id="card-2" onclick="selectChar(2)">🐯</div>
-            <div class="char-card" id="card-3" onclick="selectChar(3)">🦉</div>
-        </div>
-        <button id="confirm-char" onclick="confirmSelection()" style="margin-top:20px; padding:15px 50px; background:var(--gold); display:none; border:none; font-weight:bold; cursor:pointer;">ACTIVATE</button>
-    </div>
-
-    <div id="win-overlay" style="display:none;">
-        <h1 style="color:var(--gold);">ASCENDED</h1>
-        <div id="rankings" style="color:white; font-size:20px; margin:20px;"></div>
-        <button onclick="location.reload()" style="padding:15px; background:red; color:white; border:none;">RESTART</button>
-    </div>
-
-    <div id="ritual-log" style="color:#444; font-size:12px; padding:5px;">...</div>
+    <div id="ritual-log">Summoning spirits...</div>
+    <div id="inv-display" style="color:gold; font-weight:bold; margin-top:5px;">SABOTAGE CARDS: 0</div>
     <div id="game-container"></div>
 
-    <div class="panel">
+    <div class="panel" style="margin-bottom: 160px;">
         <div id="dice-box" style="font-size: 24px;">🎲</div>
-        <button id="roll-btn" class="btn-wait" onclick="playTurn()" disabled>WAITING</button>
+        <button id="roll-btn" class="btn-wait" onclick="playTurn()" disabled>WAITING...</button>
     </div>
 
-    <div class="emoji-bar">
-        <button onclick="sendEmoji('👻')">👻</button><button onclick="sendEmoji('💀')">💀</button>
-        <button onclick="sendEmoji('🔥')">🔥</button><button onclick="sendEmoji('😱')">😱</button>
-        <button onclick="sendEmoji('🤡')">🤡</button>
+    <div id="chat-window">
+        <div class="emoji-grid">
+            <button onclick="sendEmoji('👻')">👻</button><button onclick="sendEmoji('💀')">💀</button>
+            <button onclick="sendEmoji('😱')">😱</button><button onclick="sendEmoji('🔥')">🔥</button>
+            <button onclick="sendEmoji('😈')">😈</button><button onclick="sendEmoji('😂')">😂</button>
+            <button onclick="sendEmoji('🙏')">🙏</button><button onclick="sendEmoji('🤫')">🤫</button>
+            <button onclick="sendEmoji('👎')">👎</button><button onclick="sendEmoji('🤡')">🤡</button>
+        </div>
     </div>
-
-    <div id="emoji-flash"><h1 id="f-emoji" style="font-size:100px;"></h1><p id="f-user" style="color:var(--gold);"></p></div>
 
     <div id="overlay">
-        <img id="res-img" src="">
-        <h2 id="res-text" style="color:white; margin:15px;"></h2>
-        <div id="event-btns" style="width:80%;"></div>
+        <div class="event-card">
+            <img id="res-img" src="">
+            <h2 id="res-text"></h2>
+            <div id="event-actions"></div>
+        </div>
     </div>
 
 <script>
-    const ADMIN_USER = "aadil", ADMIN_PASS = "aadil123";
-    const CHARS = ["🐉","🦁","🐯","🦉"];
-    const snds = { dice: new Audio('dice.mp3'), trap: new Audio('noob.mp3') };
-    function playS(n) { if(snds[n]) snds[n].play().catch(()=>{}); }
+    const ADMIN_USER = "aadil";
+    const ADMIN_PASS = "aadil123";
 
-    let peer, hostConn, guestConns = [], myRole = -1, isHost = false, maxPlayers = 2;
-    let playerNames = [], playerChars = [-1,-1,-1,-1], positions = [1,1,1,1], turn = 0, finished = [false,false,false,false], winners = [], inventory = { cards: 0 };
+    let peer, hostConn, guestConns = [];
+    let myRole = -1, isHost = false, turn = 0, positions = [1,1,1,1], maxPlayers = 2;
+    let personalRolls = 0, inventory = { passes: 0 }, finished = [false, false, false, false];
+    let playerNames = ["P1", "P2", "P3", "P4"];
+
+    const sounds = { dice: new Audio('dice.mp3'), jump: new Audio('jump.mp3'), noob: new Audio('noob.mp3') };
+    function playSound(n) { const s = sounds[n].cloneNode(); s.play().catch(()=>{}); }
+
+    // RENDER BOARD WITH FIRE SLOTS
+    const board = document.getElementById('game-container');
+    const cells = [];
+    for (let i = 0; i < 100; i++) {
+        let row = Math.floor(i / 10), col = i % 10, num;
+        if (row % 2 === 0) num = 100 - (row * 10 + col); else num = 100 - (row * 10 + (9 - col));
+        let cell = document.createElement('div'); 
+        cell.className = 'cell'; 
+        cell.id = 'cell-' + num; 
+        cell.innerText = num;
+        
+        let glow = document.createElement('div');
+        glow.className = 'fire-glow';
+        cell.appendChild(glow);
+        
+        board.appendChild(cell);
+        cells.push(glow);
+    }
+
+    // FIRE ANIMATION SYSTEM
+    function flickerFire() {
+        cells.forEach(c => {
+            if (Math.random() < 0.05) { // Random chance to light up
+                c.style.opacity = Math.random() * 0.8;
+                setTimeout(() => { c.style.opacity = 0; }, 200 + Math.random() * 800);
+            }
+        });
+        requestAnimationFrame(flickerFire);
+    }
+    flickerFire();
 
     function handleAuth() {
         const name = document.getElementById('user-name').value.trim();
         const pass = document.getElementById('admin-pass').value.trim();
-        const rid = window.location.hash.substring(1);
-        if(!name) return; localStorage.setItem('gn', name);
-        if (name.toLowerCase() === ADMIN_USER && pass === ADMIN_PASS) { isHost = true; document.getElementById('auth-screen').style.display='none'; document.getElementById('setup-screen').style.display='flex'; }
-        else if (rid) { isHost = false; document.getElementById('auth-screen').style.display='none'; connect(rid, name); }
+        const rID = window.location.hash.substring(1);
+        if(!name) return;
+        localStorage.setItem('gate_username', name);
+
+        if (name.toLowerCase() === ADMIN_USER && pass === ADMIN_PASS) {
+            isHost = true; document.getElementById('auth-screen').style.display = 'none'; showHostUI();
+        } else if (rID) {
+            isHost = false; document.getElementById('auth-screen').style.display = 'none'; startAsGuest(rID, name);
+        } else {
+            alert("Credentials Error!");
+        }
     }
 
-    function initHost() {
-        maxPlayers = parseInt(document.getElementById('p-select').value);
-        playerNames = [localStorage.getItem('gn')]; document.getElementById('setup-screen').style.display='none';
+    function showHostUI() {
+        document.getElementById('setup-screen').style.display = 'flex';
+        document.getElementById('ui-box').innerHTML = `
+            <p style="color:red">HOST CONTROL</p>
+            <select id="p-count" style="width:100%; padding:15px; background:#000; color:white;"><option value="2">2 Players</option><option value="3">3 Players</option><option value="4">4 Players</option></select>
+            <button onclick="startAsHost()" style="background:red; color:white; width:100%; margin-top:15px; padding:15px; border:none; font-weight:bold;">ACTIVATE GATE</button>`;
+    }
+
+    function startAsHost() {
+        maxPlayers = parseInt(document.getElementById('p-count').value);
+        playerNames[0] = localStorage.getItem('gate_username');
         peer = new Peer();
-        peer.on('open', id => {
-            myRole = 0; const link = window.location.origin + window.location.pathname + '#' + id;
-            document.body.innerHTML += `<div id="lobby" style="position:fixed;inset:0;background:#000;z-index:10000;display:flex;flex-direction:column;justify-content:center;align-items:center;">
-                <p>SHARE LINK:</p><input type="text" value="${link}" readonly style="text-align:center;"><p id="wait-count">Souls: 1/${maxPlayers}</p></div>`;
+        peer.on('open', id => { 
+            myRole = 0; 
+            const link = window.location.origin + window.location.pathname + '#' + id;
+            document.getElementById('ui-box').innerHTML = `<p>SHARE LINK:</p><input type="text" value="${link}" id="lInp" readonly style="width:100%; padding:8px; background:#000; color:white;"><button onclick="copyL()" style="width:100%; margin-top:10px;">COPY</button>`;
         });
         peer.on('connection', c => {
             c.on('data', d => {
-                if(d.type==='join') {
-                    guestConns.push(c); playerNames.push(d.name);
-                    document.getElementById('wait-count').innerText = `Souls: ${playerNames.length}/${maxPlayers}`;
-                    if(playerNames.length === maxPlayers) { document.getElementById('lobby').remove(); broadcast({type:'init', names:playerNames, max:maxPlayers}); }
-                } else handleData(d);
+                if(d.type === 'join_request') {
+                    guestConns.push(c);
+                    playerNames[guestConns.length] = d.name;
+                    if(guestConns.length === maxPlayers-1) sendInit();
+                }
+                handleData(d);
             });
         });
     }
 
-    function connect(id, name) {
-        peer = new Peer();
-        peer.on('open', () => {
-            hostConn = peer.connect(id);
-            hostConn.on('open', () => { hostConn.send({type:'join', name:name}); hostConn.on('data', d => handleData(d)); });
-        });
-    }
-
-    let tempIdx = -1;
-    function selectChar(i) {
-        if(playerChars.includes(i)) return;
-        document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected'));
-        document.getElementById('card-'+i).classList.add('selected');
-        document.getElementById('confirm-char').style.display='block'; tempIdx = i;
-    }
-
-    function confirmSelection() {
-        document.getElementById('confirm-char').style.display='none';
-        broadcast({type:'pick', role:myRole, char:tempIdx});
-    }
-
-    function handleData(d) {
-        if(isHost) guestConns.forEach(c => { if(c.peer !== d.from) c.send(d); });
-        if(d.type==='init') { playerNames = d.names; maxPlayers = d.max; myRole = playerNames.indexOf(localStorage.getItem('gn')); document.getElementById('char-screen').style.display='flex'; }
-        if(d.type==='pick') { playerChars[d.role] = d.char; document.getElementById('card-'+d.char).classList.add('taken'); if(isHost && playerChars.filter(x=>x!==-1).length === maxPlayers) broadcast({type:'start', chars:playerChars}); }
-        if(d.type==='start') { playerChars = d.chars; document.getElementById('char-screen').style.display='none'; render(); update(); }
-        if(d.type==='sync') { positions = d.pos; turn = d.turn; document.getElementById('ritual-log').innerText = d.msg; update(); }
-        if(d.type==='sab') { positions[d.to] = d.newPos; update(); }
-        if(d.type==='chat') { showFlash(d); }
-        if(d.type==='fin') { if(!winners.includes(d.name)) winners.push(d.name); finished[d.role] = true; if(winners.length >= maxPlayers-1) showWin(); update(); }
+    function startAsGuest(id, myName) { 
+        peer = new Peer(); 
+        peer.on('open', () => { 
+            hostConn = peer.connect(id); 
+            hostConn.on('open', () => { hostConn.send({ type: 'join_request', name: myName }); });
+            hostConn.on('data', d => handleData(d)); 
+        }); 
     }
 
     function playTurn() {
-        playS('dice');
-        let r = Math.floor(Math.random()*6)+1;
-        document.getElementById('dice-box').innerText = "🎲 "+r;
-        positions[myRole] += r;
-        if(positions[myRole] >= 100) {
-            positions[myRole] = 100; finished[myRole] = true;
-            broadcast({type:'fin', role:myRole, name:playerNames[myRole]});
-        } else {
-            if(Math.random() < 0.3) trigger(); else sync(`${playerNames[myRole]} moved`);
+        if(finished[myRole]) return;
+        playSound('dice');
+        let roll = Math.floor(Math.random() * 6) + 1;
+        document.getElementById('dice-box').innerText = "🎲 " + roll;
+        positions[myRole] += roll;
+        personalRolls++;
+
+        if (positions[myRole] >= 100) { 
+            positions[myRole] = 100; finished[myRole] = true; updateUI();
+            const d = { type: 'finish', winner: myRole };
+            if (isHost) broadcast(d); else hostConn.send(d);
+            return; 
         }
+
+        if (personalRolls >= 2 || Math.random() < 0.25) { personalRolls = 0; triggerResult(); } 
+        else { sync(`${playerNames[myRole]} advanced`); }
     }
 
-    function trigger() {
-        const ov = document.getElementById('overlay'); ov.style.display="flex";
-        let isTrap = Math.random() < 0.6;
-        document.getElementById('res-img').src = (isTrap?'h':'f') + (Math.floor(Math.random()*5)+1) + ".jpg";
-        if(!isTrap) {
-            inventory.cards++; document.getElementById('res-text').innerText = "POWER CARD FOUND";
-            document.getElementById('event-btns').innerHTML = `<button onclick="cls('Blessed')" style="padding:15px;background:green;color:white;width:100%;border:none;">CLAIM</button>`;
+    function triggerResult() {
+        const overlay = document.getElementById('overlay');
+        const actions = document.getElementById('event-actions');
+        overlay.style.display = "flex";
+        let isTrap = Math.random() < 0.60, isVoid = isTrap && Math.random() < 0.30;
+        document.getElementById('res-img').src = (isTrap ? 'h' : 'f') + (Math.floor(Math.random()*5)+1) + ".jpg";
+
+        if (!isTrap) {
+            inventory.passes++;
+            document.getElementById('res-text').style.color = "gold";
+            document.getElementById('res-text').innerText = "SABOTAGE CARD!";
+            actions.innerHTML = `<button onclick="closeOverlaySync('Found card')" style="width:100%; padding:18px; background:green; color:white; font-weight:bold; border:none; border-radius:10px;">COLLECT</button>`;
         } else {
-            playS('trap'); document.getElementById('res-text').innerText = "TRAP: -10 STEPS";
-            let h = `<button onclick="tTrap()" style="padding:15px;background:#444;color:white;width:100%;border:none;margin-bottom:10px;">ACCEPT</button>`;
-            if(inventory.cards > 0) {
-                for(let i=0; i<maxPlayers; i++) if(i!==myRole && !finished[i]) h += `<button onclick="sab(${i})" style="padding:15px;background:purple;color:white;width:100%;border:none;margin-bottom:5px;">CURSE ${playerNames[i]}</button>`;
+            playSound('jump');
+            if (isVoid) {
+                document.getElementById('res-text').style.color = "red";
+                document.getElementById('res-text').innerText = "THE VOID!";
+                let btns = `<button onclick="takeVoid()" style="width:100%; padding:18px; background:red; color:white; border:none; border-radius:10px; font-weight:bold;">ACCEPT DEFEAT</button>`;
+                if (inventory.passes > 0) {
+                    for (let i=0; i<maxPlayers; i++) if(i !== myRole && !finished[i]) btns += `<button onclick="useSabotage(${i}, true)" style="background:black; color:red; margin-top:10px; padding:15px; width:100%; border:2px solid red; border-radius:10px; font-weight:bold;">VOID ${playerNames[i].toUpperCase()}</button>`;
+                }
+                actions.innerHTML = btns;
+            } else {
+                document.getElementById('res-text').style.color = "white";
+                document.getElementById('res-text').innerText = "TRAP: -10 GATES";
+                let btns = `<button onclick="takeTrap()" style="width:100%; padding:18px; background:#444; color:white; border:none; border-radius:10px; font-weight:bold;">ACCEPT</button>`;
+                if (inventory.passes > 0) {
+                    for (let i=0; i<maxPlayers; i++) if(i !== myRole && !finished[i]) btns += `<button onclick="useSabotage(${i}, false)" style="background:purple; color:white; margin-top:10px; padding:15px; width:100%; border:none; border-radius:10px; font-weight:bold;">TRAP ${playerNames[i].toUpperCase()}</button>`;
+                }
+                actions.innerHTML = btns;
             }
-            document.getElementById('event-btns').innerHTML = h;
         }
     }
 
-    function sab(t) { inventory.cards--; positions[t] = Math.max(1, positions[t]-10); document.getElementById('overlay').style.display="none"; broadcast({type:'sab', to:t, newPos:positions[t]}); sync(`Cursed ${playerNames[t]}`); }
-    function tTrap() { positions[myRole] = Math.max(1, positions[myRole]-10); document.getElementById('overlay').style.display="none"; sync(`Weakened`); }
-    function cls(m) { document.getElementById('overlay').style.display="none"; sync(m); }
+    function useSabotage(target, isVoid) {
+        inventory.passes--;
+        document.getElementById('overlay').style.display = "none";
+        let newPos = isVoid ? 1 : Math.max(1, positions[target]-10);
+        positions[target] = newPos;
+        const d = { type: isVoid ? 'sabotage_void' : 'sabotage', to: target, newPos: newPos, fromPeer: peer.id };
+        if (isHost) broadcast(d); else hostConn.send(d);
+        sync(`Sabotaged ${playerNames[target]}!`);
+    }
 
-    function update() {
-        const b = document.getElementById('roll-btn');
-        if(finished[myRole]) { b.innerText = "DONE"; b.disabled = true; b.className = "btn-wait"; }
-        else {
-            let act = (turn === myRole); b.disabled = !act;
-            b.innerText = act ? "ROLL DICE" : playerNames[turn];
-            b.className = act ? "btn-active" : "btn-wait";
+    function takeVoid() { positions[myRole] = 1; document.getElementById('overlay').style.display = "none"; sync(`Exiled to start!`); }
+    function takeTrap() { positions[myRole] = Math.max(1, positions[myRole]-10); document.getElementById('overlay').style.display = "none"; sync(`Caught in flames!`); }
+
+    function handleData(d) {
+        if (isHost) guestConns.forEach(c => { if(c.peer !== d.fromPeer) c.send(d); });
+        if (d.type === 'chat') {
+            const f = document.getElementById('emoji-flash');
+            document.getElementById('flash-content').innerText = d.text;
+            document.getElementById('flash-user').innerText = d.sender;
+            f.style.display = "flex";
+            setTimeout(() => f.style.display = "none", 1500);
         }
+        if (d.type === 'sabotage_void' || d.type === 'sabotage') {
+            positions[d.to] = d.newPos;
+            if(d.to === myRole) playSound('noob');
+            updateUI();
+        }
+        if (d.type === 'sync') { positions = d.pos; turn = d.turn; document.getElementById('ritual-log').innerText = d.msg; updateUI(); }
+        if (d.type === 'init') { myRole = d.role; maxPlayers = d.max; positions = d.pos; turn = d.turn; finished = d.fin; playerNames = d.names; document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
+        if (d.type === 'finish') { finished[d.winner] = true; updateUI(); alert(playerNames[d.winner] + " ASCENDED!"); }
+    }
+
+    function broadcast(d) { handleData(d); guestConns.forEach(c => c.send(d)); }
+    function sync(msg) { nextTurn(); const d = { type: 'sync', pos: positions, turn: turn, msg: msg, fin: finished }; if (isHost) broadcast(d); else hostConn.send(d); updateUI(); }
+    function nextTurn() { let s = 0; do { turn = (turn + 1) % maxPlayers; s++; } while (finished[turn] && s < 10); }
+
+    function updateUI() {
+        const active = (turn === myRole && !finished[myRole]);
+        document.getElementById('roll-btn').disabled = !active;
+        document.getElementById('roll-btn').innerText = active ? "RELEASE POWER" : playerNames[turn].toUpperCase() + "'S RITUAL";
+        document.getElementById('roll-btn').className = active ? "btn-active" : "btn-wait";
+        document.getElementById('inv-display').innerText = `CARDS: ${inventory.passes}`;
+        
+        // Instant Movement - Remove all existing dots
         document.querySelectorAll('.player').forEach(p => p.remove());
-        for(let i=0; i<maxPlayers; i++) {
-            let cell = document.getElementById('cell-'+positions[i]);
-            if(cell && playerChars[i]!==-1) {
-                let p = document.createElement('div'); p.className = `player ${turn===i?'active-turn':''}`;
-                p.innerText = CHARS[playerChars[i]]; cell.appendChild(p);
+        positions.slice(0, maxPlayers).forEach((pos, i) => {
+            const cell = document.getElementById('cell-' + pos);
+            if (cell) {
+                const dot = document.createElement('div');
+                dot.className = `player p${i}`;
+                cell.appendChild(dot);
             }
-        }
+        });
     }
 
-    function broadcast(d) { d.from = peer.id; handleData(d); if(isHost) guestConns.forEach(c => c.send(d)); else if(hostConn) hostConn.send(d); }
-    function sync(m) { nextT(); broadcast({type:'sync', pos:positions, turn:turn, msg:m}); }
-    function nextT() { let s=0; do { turn = (turn + 1) % maxPlayers; s++; } while(finished[turn] && s < 10); }
-    function sendEmoji(e) { broadcast({type:'chat', user:playerNames[myRole], emoji:e}); }
-    function showFlash(d) { const f = document.getElementById('emoji-flash'); document.getElementById('f-emoji').innerText = d.emoji; document.getElementById('f-user').innerText = d.user; f.style.display="flex"; setTimeout(()=>f.style.display="none", 1200); }
-    function showWin() { document.getElementById('win-overlay').style.display='flex'; document.getElementById('rankings').innerText = winners.map((n,i)=>`${i+1}. ${n}`).join('\n'); }
-
-    function render() {
-        const board = document.getElementById('game-container'); board.innerHTML = "";
-        for (let i = 0; i < 100; i++) {
-            let r = Math.floor(i / 10), c = i % 10, n = (r % 2 === 0) ? 100 - (r * 10 + c) : 100 - (r * 10 + (9 - c));
-            let div = document.createElement('div'); div.className = 'cell'; div.id = 'cell-' + n; div.innerText = n; board.appendChild(div);
-        }
-    }
+    function sendEmoji(e) { const m = { type: 'chat', sender: playerNames[myRole], text: e, fromPeer: peer.id }; if (isHost) broadcast(m); else hostConn.send(m); }
+    function copyL() { const i = document.getElementById('lInp'); i.select(); navigator.clipboard.writeText(i.value); alert("Link Copied!"); }
+    function closeOverlaySync(m) { document.getElementById('overlay').style.display="none"; sync(m); }
+    function sendInit() { guestConns.forEach((c, i) => c.send({ type: 'init', role: i+1, max: maxPlayers, pos: positions, turn: turn, fin: finished, names: playerNames })); document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
 </script>
 </body>
 </html>
