@@ -1,11 +1,16 @@
 {
-  "name": "100 Gates",
-  "short_name": "100Gates",
-  "start_url": "index.html",
+  "name": "100 Gates: Infernal Edition",
+  "short_name": "100 Gates",
+  "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#ff0000",
+  "background_color": "#050505",
+  "theme_color": "#bc0000",
   "icons": [
-    { "src": "icon.png", "sizes": "512x512", "type": "image/png" }
+    {
+      "src": "h1.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg",
+      "purpose": "any"
+    }
   ]
 }
