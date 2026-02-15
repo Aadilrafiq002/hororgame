@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>100 GATES: INFERNAL EDITION (SOUND FIXED)</title>
+    <title>100 GATES: INFERNAL EDITION</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg: #050505; --accent: #bc0000; --panel: #1a1a1a; --fire: #ff4500; }
@@ -18,6 +18,7 @@
         .soul-id { display: flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 15px; background: #1a1a1a; border: 1px solid #333; }
         .soul-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
         .my-identity { border-color: var(--accent); background: #2a0000; }
+        /* Turn Indicator */
         .active-turn { box-shadow: 0 0 10px gold; border-color: gold; color: gold; }
 
         /* Board & Fire Effect */
@@ -39,6 +40,7 @@
         .btn-active { background: #008000; color: white; }
         .btn-wait { background: #222; color: #555; }
         
+        /* Compact Emoji Grid */
         #chat-window { position: fixed; bottom: 0; left: 0; right: 0; background: #111; z-index: 8000; border-top: 2px solid var(--accent); padding-bottom: env(safe-area-inset-bottom); }
         .emoji-grid { display: grid; grid-template-columns: repeat(5, 1fr); max-width: 400px; margin: 0 auto; padding: 6px; gap: 5px; }
         .emoji-grid button { font-size: 22px; padding: 10px; background: #222; border: 1px solid #444; color: white; border-radius: 8px; cursor: pointer; }
@@ -57,6 +59,7 @@
     </div>
 
     <div id="soul-bar"></div>
+
     <div id="emoji-flash"><p id="flash-content" style="font-size: 80px;"></p><p id="flash-user" style="color:red; font-size: 20px;"></p></div>
 
     <div id="setup-screen" style="position:fixed; inset:0; background:#000; z-index:8500; display:none; flex-direction:column; justify-content:center; align-items:center;">
@@ -100,15 +103,9 @@
     let personalRolls = 0, inventory = { passes: 0 }, finished = [false, false, false, false];
     let playerNames = ["P1", "P2", "P3", "P4"];
 
-    // --- SOUND SYSTEM (RESTORED) ---
-    const sounds = { 
-        dice: new Audio('dice.mp3'), 
-        jump: new Audio('jump.mp3'), 
-        noob: new Audio('noob.mp3') 
-    };
+    const sounds = { dice: new Audio('dice.mp3'), jump: new Audio('jump.mp3'), noob: new Audio('noob.mp3') };
     function playSound(n) { const s = sounds[n].cloneNode(); s.play().catch(()=>{}); }
 
-    // Board setup
     const board = document.getElementById('game-container');
     const cells = [];
     for (let i = 0; i < 100; i++) {
@@ -132,9 +129,6 @@
     flickerFire();
 
     function handleAuth() {
-        // Unlock audio for browser
-        Object.values(sounds).forEach(s => { s.play().then(()=>s.pause()).catch(()=>{}); });
-        
         const name = document.getElementById('user-name').value.trim();
         const pass = document.getElementById('admin-pass').value.trim();
         const rID = window.location.hash.substring(1);
@@ -195,7 +189,7 @@
 
     function playTurn() {
         if(finished[myRole]) return;
-        playSound('dice'); // Dice Sound
+        playSound('dice');
         let roll = Math.floor(Math.random() * 6) + 1;
         document.getElementById('dice-box').innerText = "🎲 " + roll;
         positions[myRole] += roll;
@@ -224,7 +218,7 @@
             document.getElementById('res-text').innerText = "SABOTAGE CARD!";
             actions.innerHTML = `<button onclick="closeOverlaySync('Found card')" style="width:100%; padding:15px; background:green; color:white; border:none; border-radius:5px;">COLLECT</button>`;
         } else {
-            playSound('jump'); // Trap/Jumpscare Sound
+            playSound('jump');
             if (isVoid) {
                 document.getElementById('res-text').style.color = "red";
                 document.getElementById('res-text').innerText = "THE VOID!";
@@ -260,17 +254,19 @@
 
     function handleEndStateMessage() {
         if (!isHost) {
-            document.getElementById('ritual-log').innerHTML = "<span style='color:gold;'>GAME OVER. WAIT FOR RESTART.</span>";
+            document.getElementById('ritual-log').innerHTML = "<span style='color:gold;'>GAME FINISHED. ASK HOST TO RESTART OR START NEW GAME.</span>";
         } else {
             document.getElementById('host-controls').innerHTML = `
                 <button onclick="restartGame()" style="background:green; color:white; width:100%; padding:12px; border:none; font-weight:bold; border-radius:5px;">RESTART GAME</button>
-                <button onclick="newGameSetup()" style="background:red; color:white; width:100%; padding:12px; border:none; font-weight:bold; border-radius:5px; margin-top:5px;">NEW GAME</button>`;
+                <button onclick="newGameSetup()" style="background:red; color:white; width:100%; padding:12px; border:none; font-weight:bold; border-radius:5px; margin-top:5px;">START NEW GAME</button>`;
         }
     }
 
     function checkEndState() {
         let finCount = finished.slice(0, maxPlayers).filter(f => f === true).length;
-        if (finCount >= (maxPlayers - 1)) handleEndStateMessage();
+        if (finCount >= (maxPlayers - 1)) {
+            handleEndStateMessage();
+        }
     }
 
     function restartGame() {
@@ -295,7 +291,7 @@
         }
         if (d.type === 'sabotage_void' || d.type === 'sabotage') {
             positions[d.to] = d.newPos;
-            if(d.to === myRole) playSound('noob'); // Victim sound
+            if(d.to === myRole) playSound('noob');
             updateUI();
         }
         if (d.type === 'sync') { positions = d.pos; turn = d.turn; document.getElementById('ritual-log').innerText = d.msg; updateUI(); checkEndState(); }
