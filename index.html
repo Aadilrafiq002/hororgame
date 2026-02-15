@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>100 GATES: SABOTAGE & VOID</title>
+    <title>100 GATES: VOID FIXED</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg: #050505; --accent: #bc0000; --panel: #1a1a1a; }
@@ -20,11 +20,9 @@
         .p0 { background: #ff3333; } .p1 { background: #33aaff; } .p2 { background: #33ff77; } .p3 { background: #f0ff33; }
         
         #ritual-log { background: #000; color: #888; padding: 8px; font-size: 12px; height: 35px; border-bottom: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; }
-
         #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 5000; }
         .event-card { width: 90%; max-width: 350px; text-align: center; }
         #res-img { width: 100%; height: auto; max-height: 350px; object-fit: cover; border: 4px solid var(--accent); border-radius: 5px; margin-bottom: 10px; }
-        
         #finish-screen { position: fixed; inset: 0; background: #000; display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9999; }
 
         #chat-window { position: fixed; bottom: 0; left: 50%; transform: translateX(-50%); width: 100%; max-width: 450px; background: #111; z-index: 2000; border-top: 2px solid var(--accent); }
@@ -44,8 +42,7 @@
     <div id="auth-screen">
         <h1 style="color:var(--accent); font-size: 40px;">100 GATES</h1>
         <input type="text" id="user-name" placeholder="Enter Your Name">
-        <input type="password" id="admin-pass" placeholder="Host Password (Optional)">
-        <p style="font-size: 10px; color: #444;">Admin: aadil | Pass: aadil123</p>
+        <input type="password" id="admin-pass" placeholder="Host Password">
         <button onclick="handleAuth()" style="width:85%; max-width:320px; padding:15px; background:var(--accent); color:white; border:none; font-weight:bold; cursor:pointer;">ENTER REALM</button>
     </div>
 
@@ -59,7 +56,6 @@
     <div id="emoji-flash"><p id="flash-content" style="font-size:120px; margin:0;"></p><p id="flash-user" style="color:red; font-size:20px;"></p></div>
 
     <div id="setup-screen" style="position:fixed; inset:0; background:#000; z-index:8000; display:none; flex-direction:column; justify-content:center; align-items:center;">
-        <h1 style="color:var(--accent); font-size:30px;">ROOM SETUP</h1>
         <div id="ui-box" class="panel"></div>
     </div>
 
@@ -91,7 +87,6 @@
     </div>
 
 <script>
-    // AUTH CONSTANTS
     const ADMIN_USER = "aadil";
     const ADMIN_PASS = "aadil123";
 
@@ -103,10 +98,6 @@
     const sounds = { dice: new Audio('dice.mp3'), jump: new Audio('jump.mp3'), noob: new Audio('noob.mp3') };
     function playSound(n) { const s = sounds[n].cloneNode(); s.play().catch(()=>{}); }
 
-    const winJokes = ["You outran the ghosts!", "Winner! Too fast for this haunted house.", "The spirits gave up on you!"];
-    const loseJokes = ["You're basically a turtle in a shell.", "Even the skeletons are tired of waiting!", "Hurry up or the ghosts will charge rent!"];
-
-    // On Load: Fetch name from mobile storage
     window.onload = () => {
         const savedName = localStorage.getItem('gate_username');
         if(savedName) document.getElementById('user-name').value = savedName;
@@ -116,21 +107,16 @@
         const nameInput = document.getElementById('user-name').value.trim();
         const passInput = document.getElementById('admin-pass').value.trim();
         const rID = window.location.hash.substring(1);
-        
         if(!nameInput) return alert("Enter a name!");
         localStorage.setItem('gate_username', nameInput);
         playerNames[0] = nameInput;
 
         if (nameInput.toLowerCase() === ADMIN_USER && passInput === ADMIN_PASS) {
-            isHost = true;
-            document.getElementById('auth-screen').style.display = 'none';
-            showHostUI();
+            isHost = true; document.getElementById('auth-screen').style.display = 'none'; showHostUI();
         } else if (rID) {
-            isHost = false;
-            document.getElementById('auth-screen').style.display = 'none';
-            startAsGuest(rID, nameInput);
+            isHost = false; document.getElementById('auth-screen').style.display = 'none'; startAsGuest(rID, nameInput);
         } else {
-            alert("Wrong credentials! If you are a guest, join using a link.");
+            alert("Wrong credentials! Guest must join via Link.");
         }
     }
 
@@ -151,7 +137,7 @@
             myRole = 0; 
             const link = window.location.origin + window.location.pathname + '#' + id;
             document.getElementById('ui-box').innerHTML = `
-                <p style="font-size:12px">SHARE LINK WITH GUESTS:</p>
+                <p style="font-size:12px">SHARE LINK:</p>
                 <input type="text" value="${link}" id="lInp" readonly style="width:100%; padding:8px; background:#000; color:white;">
                 <button onclick="copyL()" style="width:100%; margin-top:10px; padding:10px;">COPY LINK</button>
                 <p id="wait-msg">Waiting for ${maxPlayers-1} more...</p>`;
@@ -172,12 +158,9 @@
         peer = new Peer(); 
         peer.on('open', () => { 
             hostConn = peer.connect(id); 
-            hostConn.on('open', () => {
-                hostConn.send({ type: 'join_request', name: myName });
-            });
+            hostConn.on('open', () => { hostConn.send({ type: 'join_request', name: myName }); });
             hostConn.on('data', d => handleData(d)); 
         }); 
-        document.getElementById('ritual-log').innerText = "Connecting...";
     }
 
     function playTurn() {
@@ -190,17 +173,13 @@
 
         if (positions[myRole] >= 100) { 
             positions[myRole] = 100; finished[myRole] = true; updateUI();
-            const d = { type: 'finish', winner: myRole, msg: `${playerNames[myRole]} HAS FINISHED!` };
+            const d = { type: 'finish', winner: myRole };
             if (isHost) broadcast(d); else hostConn.send(d);
             showFinishScreen(true, myRole);
             return; 
         }
-        
-        if (personalRolls >= 2 || Math.random() < 0.2) {
-            personalRolls = 0; triggerResult(roll);
-        } else {
-            sync(`${playerNames[myRole]} rolled ${roll}`);
-        }
+        if (personalRolls >= 2 || Math.random() < 0.2) { personalRolls = 0; triggerResult(roll); } 
+        else { sync(`${playerNames[myRole]} moved ${roll}`); }
     }
 
     function triggerResult(roll) {
@@ -215,9 +194,8 @@
 
         if (!isTrap) {
             inventory.passes++;
-            document.getElementById('res-text').style.color = "gold";
-            document.getElementById('res-text').innerText = "LOOT: Sabotage Card!";
-            actions.innerHTML = `<button onclick="closeOverlaySync('${playerNames[myRole]} got a card')" style="width:100%; padding:15px; background:green; color:white;">COLLECT</button>`;
+            document.getElementById('res-text').style.color = "gold"; document.getElementById('res-text').innerText = "LOOT: Sabotage Card!";
+            actions.innerHTML = `<button onclick="closeOverlaySync('Found a card')" style="width:100%; padding:15px; background:green; color:white;">COLLECT</button>`;
         } else {
             playSound('jump');
             if (isVoid) {
@@ -238,10 +216,25 @@
         }
     }
 
-    function usePass(target) { inventory.passes--; document.getElementById('overlay').style.display = "none"; const d = { type: 'sabotage', to: target }; if (isHost) broadcast(d); else hostConn.send(d); sync(`${playerNames[myRole]} sabotaged ${playerNames[target]}`); }
-    function useVoidPass(target) { inventory.passes--; document.getElementById('overlay').style.display = "none"; const d = { type: 'sabotage_void', to: target }; if (isHost) broadcast(d); else hostConn.send(d); sync(`${playerNames[myRole]} passed the Void!`); }
-    function takeVoid() { positions[myRole] = 1; document.getElementById('overlay').style.display = "none"; sync(`${playerNames[myRole]} hit the Void!`); }
-    function takePunishment() { positions[myRole] = Math.max(1, positions[myRole]-10); document.getElementById('overlay').style.display = "none"; sync(`${playerNames[myRole]} hit a trap!`); }
+    // VOID FIX: The message 'sabotage_void' now explicitly sets position to 1
+    function useVoidPass(target) { 
+        inventory.passes--; 
+        document.getElementById('overlay').style.display = "none"; 
+        const d = { type: 'sabotage_void', to: target, msg: `${playerNames[myRole]} SENT ${playerNames[target]} TO START!` }; 
+        if (isHost) broadcast(d); else hostConn.send(d); 
+        sync(`Used Void on ${playerNames[target]}`); 
+    }
+
+    function usePass(target) { 
+        inventory.passes--; 
+        document.getElementById('overlay').style.display = "none"; 
+        const d = { type: 'sabotage', to: target }; 
+        if (isHost) broadcast(d); else hostConn.send(d); 
+        sync(`Sabotaged ${playerNames[target]}`); 
+    }
+
+    function takeVoid() { positions[myRole] = 1; document.getElementById('overlay').style.display = "none"; sync(`Hit the Void!`); }
+    function takePunishment() { positions[myRole] = Math.max(1, positions[myRole]-10); document.getElementById('overlay').style.display = "none"; sync(`Hit a trap!`); }
 
     function handleData(d) {
         if (isHost) guestConns.forEach(c => { if(c.peer !== d.fromPeer) c.send(d); });
@@ -250,14 +243,23 @@
             document.getElementById('flash-content').innerText = d.text;
             document.getElementById('flash-user').innerText = d.sender;
             f.style.display = "flex";
-            if(d.text === '🤡') playSound('noob');
             setTimeout(() => f.style.display = "none", 1500);
         }
         if (d.type === 'init') { myRole = d.role; maxPlayers = d.max; positions = d.pos; turn = d.turn; finished = d.fin; playerNames = d.names; document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
         if (d.type === 'sync') { positions = d.pos; turn = d.turn; document.getElementById('ritual-log').innerText = d.msg; updateUI(); }
         if (d.type === 'finish') { finished[d.winner] = true; positions[d.winner] = 100; showFinishScreen(false, d.winner); updateUI(); }
-        if (d.type === 'sabotage') { positions[d.to] = Math.max(1, positions[d.to]-10); if(d.to === myRole) playSound('noob'); updateUI(); }
-        if (d.type === 'sabotage_void') { positions[d.to] = 1; if(d.to === myRole) playSound('noob'); updateUI(); }
+        
+        // VOID Logic Fix:
+        if (d.type === 'sabotage_void') { 
+            positions[d.to] = 1; 
+            if(d.to === myRole) playSound('noob'); 
+            updateUI(); 
+        }
+        if (d.type === 'sabotage') { 
+            positions[d.to] = Math.max(1, positions[d.to]-10); 
+            if(d.to === myRole) playSound('noob'); 
+            updateUI(); 
+        }
     }
 
     function broadcast(d) { handleData(d); guestConns.forEach(c => c.send(d)); }
@@ -284,17 +286,9 @@
     function showFinishScreen(isMe, idx) {
         const screen = document.getElementById('finish-screen');
         screen.style.display = "flex";
-        let remaining = finished.slice(0, maxPlayers).filter(f => !f).length;
-        if(isMe) {
-            document.getElementById('finish-img').src = "f1.jpg";
-            document.getElementById('finish-title').innerText = "🎉 CONGRATULATIONS!";
-            document.getElementById('finish-joke').innerText = winJokes[Math.floor(Math.random()*winJokes.length)];
-        } else {
-            document.getElementById('finish-img').src = "h1.jpg";
-            document.getElementById('finish-title').innerText = `${playerNames[idx]} FINISHED!`;
-            document.getElementById('finish-joke').innerText = loseJokes[Math.floor(Math.random()*loseJokes.length)];
-        }
-        document.getElementById('finish-btn-area').innerHTML = (remaining > 1) ? `<button onclick="document.getElementById('finish-screen').style.display='none'" style="padding:15px;">WATCH</button>` : `<button onclick="location.reload()" style="padding:15px; background:gold;">NEW GAME</button>`;
+        document.getElementById('finish-title').innerText = isMe ? "CONGRATS!" : `${playerNames[idx]} FINISHED!`;
+        document.getElementById('finish-img').src = isMe ? "f1.jpg" : "h1.jpg";
+        document.getElementById('finish-btn-area').innerHTML = `<button onclick="location.reload()" style="padding:15px; background:gold;">NEW GAME</button>`;
     }
 
     function sendEmoji(e) { const m = { type: 'chat', sender: playerNames[myRole], text: e }; if (isHost) broadcast(m); else hostConn.send(m); }
