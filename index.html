@@ -64,6 +64,8 @@
         <input type="text" id="user-name" placeholder="Enter Your Name">
         <button onclick="handleAuth()" style="width:80%; padding:15px; background:var(--accent); color:white; border:none; font-weight:bold; margin-bottom:10px;">ENTER THE VOID</button>
         <button onclick="startBotMode()" style="width:80%; padding:15px; background:#333; color:white; border:1px solid #555; font-weight:bold;">PLAY VS COMPUTER</button>
+        <button onclick="showLocalSetup()" style="width:80%; padding:15px; background:#333; color:white; border:1px solid #555; font-weight:bold;">LOCAL PASS & PLAY</button>
+        <!-- <button onclick="showLocalSetup()" style="background: #444; margin-top: 10px;">LOCAL PASS & PLAY</button> -->
     </div>
     <div id="soul-bar"></div>
     <div id="emoji-flash"><p id="flash-content" style="font-size: 80px;"></p><p id="flash-user" style="color:red; font-size: 20px;"></p></div>
@@ -94,6 +96,102 @@
 
     <div id="overlay"><div class="panel" style="text-align:center;"><img id="res-img" src="" style="width:100%; max-height:30vh; object-fit:contain;"><h2 id="res-text"></h2><div id="event-actions"></div></div></div>
 
+
+<!-- this is local player scritp -->
+
+<script>
+    /**
+     * LOCAL MODE LOGIC (PASS & PLAY)
+     * Handles 2-4 players on one screen.
+     */
+    let isLocalMode = false;
+
+    function showLocalSetup() {
+        const name = document.getElementById('user-name').value.trim();
+        if(!name) { alert("Please enter your name first!"); return; }
+        
+        localStorage.setItem('gate_username', name);
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('setup-screen').style.display = 'flex';
+        
+        // Show local-specific UI in the setup box
+        document.getElementById('ui-box').innerHTML = `
+            <p style="color:gold; font-weight:bold;">LOCAL RITUAL</p>
+            <label style="font-size: 12px; color: #888;">How many souls?</label>
+            <select id="p-count-local" style="width:100%; padding:15px; background:#000; color:white; border:1px solid gold;">
+                <option value="2">2 Players</option>
+                <option value="3">3 Players</option>
+                <option value="4">4 Players</option>
+            </select>
+            <button onclick="startLocalGame()" style="background:gold; color:black; width:100%; margin-top:15px; padding:15px; border:none; font-weight:bold;">START LOCAL GAME</button>
+        `;
+    }
+
+    function startLocalGame() {
+        isLocalMode = true;
+        isVsCPU = false;
+        isHost = true; // Acts as host to allow movement
+        
+        maxPlayers = parseInt(document.getElementById('p-count-local').value);
+        
+        // Initialize Player Names
+        playerNames[0] = localStorage.getItem('gate_username') || "P1";
+        for(let i = 1; i < maxPlayers; i++) {
+            playerNames[i] = "PLAYER " + (i + 1);
+        }
+
+        // Setup Initial State
+        positions = [1, 1, 1, 1];
+        finished = [false, false, false, false];
+        turn = 0;
+        myRole = 0; // In local mode, myRole will follow the 'turn' variable
+
+        // Hide Setup and Start
+        document.getElementById('setup-screen').style.display = 'none';
+        document.getElementById('conn-status').style.display = 'none';
+
+        // Override the global 'sync' function for Local Mode
+        window.sync = function(msg) {
+            nextTurn();
+            // Critical: Change myRole to whoever's turn it is now
+            myRole = turn; 
+            document.getElementById('ritual-log').innerText = msg;
+            updateUI();
+        };
+
+        // Override takeReward/takePenalty/takeVoid to ensure myRole is correct
+        const originalTakePenalty = takePenalty;
+        window.takePenalty = async function(p) {
+            myRole = turn;
+            await originalTakePenalty(p);
+        };
+
+        const originalTakeReward = takeReward;
+        window.takeReward = async function(r) {
+            myRole = turn;
+            await originalTakeReward(r);
+        };
+
+        const originalTakeVoid = takeVoid;
+        window.takeVoid = async function() {
+            myRole = turn;
+            await originalTakeVoid();
+        };
+
+        updateUI();
+        document.getElementById('ritual-log').innerText = "Pass the device. " + playerNames[0] + " starts!";
+    }
+
+    // Wrap the existing playTurn to ensure myRole matches turn before rolling
+    const originalPlayTurnLocal = playTurn;
+    playTurn = async function() {
+        if (isLocalMode) {
+            myRole = turn; 
+        }
+        await originalPlayTurnLocal();
+    };
+</script>
+<!-- this is main multiplayer script  -->
 <script>
     const ADMIN_USER = "aadil";
     const ADMIN_PASS = "aadil123";
