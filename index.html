@@ -9,7 +9,6 @@
         :root { --bg: #050505; --accent: #bc0000; --panel: #1a1a1a; --fire: #ff4500; }
         body { background: var(--bg); color: #cfcfcf; font-family: 'Courier New', monospace; margin: 0; text-align: center; overflow-x: hidden; touch-action: manipulation; }
         
-        /* Mobile Status Indicator */
         #conn-status { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: #555; z-index: 10000; }
         #conn-status.online { background: #00ff00; box-shadow: 0 0 5px #00ff00; }
         #conn-status.offline { background: #ff0000; }
@@ -50,7 +49,6 @@
 <body>
 
     <div id="conn-status"></div>
-
     <audio id="bg-music" loop><source src="bg.mp3" type="audio/mpeg"></audio>
 
     <div id="auth-screen">
@@ -73,7 +71,7 @@
     <div class="panel" style="margin-bottom: 130px;">
         <div id="dice-box" style="font-size: 20px; margin-bottom: 5px;">🎲</div>
         <button id="roll-btn" class="btn-wait" onclick="playTurn()" disabled>WAITING...</button>
-        <div id="inv-display" style="color:gold; font-size: 12px; font-weight:bold; margin-top:5px;">CARDS: 0</div>
+        <div id="inv-display" style="color:gold; font-size: 12px; font-weight:bold; margin-top:5px;">CARDS: 0 (0/5 USED)</div>
         <div id="host-controls" style="margin-top: 10px;"></div>
     </div>
 
@@ -95,7 +93,7 @@
 
     let peer, hostConn, guestConns = [];
     let myRole = -1, isHost = false, turn = 0, positions = [1,1,1,1], maxPlayers = 2;
-    let personalRolls = 0, inventory = { passes: 0 }, finished = [false, false, false, false];
+    let personalRolls = 0, inventory = { passes: 0, usedCount: 0 }, finished = [false, false, false, false];
     let playerNames = ["P1", "P2", "P3", "P4"];
     let isMoving = false;
 
@@ -110,43 +108,19 @@
     const sounds = { dice: new Audio('dice.mp3'), jump: new Audio('jump.mp3'), noob: new Audio('noob.mp3') };
     function playSound(n) { const s = sounds[n].cloneNode(); s.play().catch(()=>{}); }
 
-    // --- MOBILE PERSISTENCE LOGIC ---
     function initPeer(id = null) {
         if (peer) peer.destroy();
         peer = id ? new Peer(id) : new Peer();
-
         peer.on('open', (newId) => {
             document.getElementById('conn-status').className = 'online';
-            if (isHost) {
-                const link = window.location.origin + window.location.pathname + '#' + newId;
-                updateHostUI(link);
-            }
+            if (isHost) updateHostUI(window.location.origin + window.location.pathname + '#' + newId);
         });
-
-        peer.on('disconnected', () => {
-            document.getElementById('conn-status').className = 'offline';
-            peer.reconnect();
-        });
-
-        peer.on('close', () => { document.getElementById('conn-status').className = 'offline'; });
-        peer.on('error', (err) => { console.error(err); document.getElementById('conn-status').className = 'offline'; });
-
+        peer.on('disconnected', () => { document.getElementById('conn-status').className = 'offline'; peer.reconnect(); });
         if (isHost) setupHostListeners();
     }
 
-    // Keep mobile CPU from sleeping the connection
-    setInterval(() => {
-        if (peer && peer.disconnected && !peer.destroyed) peer.reconnect();
-    }, 3000);
+    setInterval(() => { if (peer && peer.disconnected && !peer.destroyed) peer.reconnect(); }, 3000);
 
-    // Re-trigger logic when coming back from WhatsApp
-    document.addEventListener("visibilitychange", () => {
-        if (document.visibilityState === 'visible' && peer && peer.disconnected) {
-            peer.reconnect();
-        }
-    });
-
-    // Board Generation
     const boardEl = document.getElementById('game-container');
     const cells = [];
     for (let i = 0; i < 100; i++) {
@@ -168,25 +142,15 @@
         const name = document.getElementById('user-name').value.trim();
         const pass = document.getElementById('admin-pass').value.trim();
         const rID = window.location.hash.substring(1);
-        
-        // Music Start
         const bgm = document.getElementById('bg-music');
         if(bgm) { bgm.volume = 0.4; bgm.play().catch(()=>{}); }
-
         if(!name) return;
         localStorage.setItem('gate_username', name);
-
         if (name.toLowerCase() === ADMIN_USER && pass === ADMIN_PASS) {
-            isHost = true; 
-            document.getElementById('auth-screen').style.display = 'none'; 
-            showHostUI(); 
+            isHost = true; document.getElementById('auth-screen').style.display = 'none'; showHostUI(); 
         } else if (rID) {
-            isHost = false; 
-            document.getElementById('auth-screen').style.display = 'none'; 
-            startAsGuest(rID, name); 
-        } else { 
-            alert("No Lobby ID! Use a link from the host."); 
-        }
+            isHost = false; document.getElementById('auth-screen').style.display = 'none'; startAsGuest(rID, name); 
+        } else { alert("No Lobby ID!"); }
     }
 
     function showHostUI() {
@@ -197,8 +161,7 @@
     function startAsHost() {
         maxPlayers = parseInt(document.getElementById('p-count').value);
         playerNames[0] = localStorage.getItem('gate_username');
-        myRole = 0;
-        initPeer();
+        myRole = 0; initPeer();
     }
 
     function updateHostUI(link) {
@@ -209,9 +172,7 @@
         peer.on('connection', c => {
             c.on('data', d => {
                 if(d.type === 'join_request') {
-                    let existingIdx = playerNames.indexOf(d.name);
-                    if(existingIdx !== -1 && existingIdx < maxPlayers) { guestConns[existingIdx - 1] = c; sendInit(); }
-                    else if (guestConns.length < maxPlayers - 1) { guestConns.push(c); playerNames[guestConns.length] = d.name; if(guestConns.length === maxPlayers-1) sendInit(); }
+                    if (guestConns.length < maxPlayers - 1) { guestConns.push(c); playerNames[guestConns.length] = d.name; if(guestConns.length === maxPlayers-1) sendInit(); }
                 }
                 handleData(d);
             });
@@ -225,7 +186,6 @@
             hostConn = peer.connect(id, {reliable: true}); 
             hostConn.on('open', () => { hostConn.send({ type: 'join_request', name: myName }); });
             hostConn.on('data', d => handleData(d)); 
-            hostConn.on('close', () => { document.getElementById('conn-status').className = 'offline'; });
         }); 
     }
 
@@ -237,7 +197,7 @@
             current += step;
             positions[playerIdx] = current;
             updateUI();
-            await new Promise(r => setTimeout(r, 200)); 
+            await new Promise(r => setTimeout(r, 150)); 
         }
         isMoving = false;
         updateUI();
@@ -258,59 +218,59 @@
             handleJudgment(myRole);
             return; 
         }
-        if (personalRolls >= 2 || Math.random() < 0.25) { personalRolls = 0; triggerResult(); } 
+        // Chance to trigger event
+        if (personalRolls >= 2 || Math.random() < 0.30) { personalRolls = 0; triggerResult(); } 
         else { sync(`${playerNames[myRole]} moved`); }
     }
 
     function triggerResult() {
         const overlay = document.getElementById('overlay');
         const actions = document.getElementById('event-actions');
+        const resText = document.getElementById('res-text');
         overlay.style.display = "flex";
-        let isTrap = Math.random() < 0.60;
-        document.getElementById('res-img').src = (isTrap ? 'h' : 'f') + (Math.floor(Math.random()*5)+1) + ".jpg";
-        if (!isTrap) {
+        let rand = Math.random();
+        
+        if (rand < 0.20) { // 20% Card
             inventory.passes++;
-            document.getElementById('res-text').style.color = "gold";
-            document.getElementById('res-text').innerText = "SABOTAGE CARD!";
+            resText.style.color = "gold"; resText.innerText = "SABOTAGE CARD FOUND!";
+            document.getElementById('res-img').src = "f1.jpg";
             actions.innerHTML = `<button onclick="closeOverlaySync('Found card')" style="width:100%; padding:15px; background:green; color:white; border:none; border-radius:5px;">COLLECT</button>`;
-        } else {
-            playSound('jump');
-            document.getElementById('res-text').style.color = "white";
-            document.getElementById('res-text').innerText = "TRAP: -10";
-            let btns = `<button onclick="takeTrap()" style="width:100%; padding:15px; background:#444; color:white; border:none; border-radius:5px;">ACCEPT</button>`;
-            if (inventory.passes > 0) {
-                for (let i=0; i<maxPlayers; i++) if(i !== myRole && !finished[i]) btns += `<button onclick="useSabotage(${i})" style="background:purple; color:white; margin-top:5px; padding:10px; width:100%; border:none; border-radius:5px;">TRAP ${playerNames[i]}</button>`;
+        } 
+        else if (rand < 0.40) { // 20% Reward
+            let bonus = Math.floor(Math.random() * 5) + 5; 
+            resText.style.color = "#00ff00"; resText.innerText = "BLESSED: +" + bonus;
+            document.getElementById('res-img').src = "f2.jpg";
+            actions.innerHTML = `<button onclick="takeReward(${bonus})" style="width:100%; padding:15px; background:green; color:white; border:none; border-radius:5px;">RISE</button>`;
+        }
+        else if (rand < 0.80) { // 40% Trap/Sabotage
+            resText.style.color = "red"; resText.innerText = "INFERNO TRAP: -10";
+            document.getElementById('res-img').src = "h1.jpg";
+            let btns = `<button onclick="takePenalty(10)" style="width:100%; padding:15px; background:#444; color:white; border:none; border-radius:5px;">ACCEPT</button>`;
+            if (inventory.passes > 0 && inventory.usedCount < 5) {
+                for (let i=0; i<maxPlayers; i++) if(i !== myRole && !finished[i]) btns += `<button onclick="useSabotage(${i}, 10)" style="background:purple; color:white; margin-top:5px; padding:10px; width:100%; border:none; border-radius:5px;">TRAP ${playerNames[i]}</button>`;
             }
             actions.innerHTML = btns;
         }
+        else { // 20% THE VOID
+            playSound('noob');
+            resText.style.color = "#ff00ff"; resText.innerText = "THE VOID: BACK TO GATE 1";
+            document.getElementById('res-img').src = "h2.jpg";
+            actions.innerHTML = `<button onclick="takeVoid()" style="width:100%; padding:15px; background:black; color:white; border:1px solid #ff00ff; border-radius:5px;">FALL</button>`;
+        }
     }
 
-    async function useSabotage(target) {
-        inventory.passes--;
+    async function useSabotage(target, p) {
+        inventory.passes--; inventory.usedCount++;
         document.getElementById('overlay').style.display = "none";
-        let newPos = Math.max(1, positions[target]-10);
-        await animateMove(target, newPos);
+        let newPos = Math.max(1, positions[target] - p);
         const d = { type: 'sabotage', to: target, newPos: newPos, fromPeer: peer.id };
         if (isHost) broadcast(d); else hostConn.send(d);
         sync(`Sabotaged ${playerNames[target]}!`);
     }
 
-    async function takeTrap() { 
-        document.getElementById('overlay').style.display = "none"; 
-        await animateMove(myRole, Math.max(1, positions[myRole]-10));
-        sync(`Caught in flames!`); 
-    }
-
-    function checkEndState() {
-        let finCount = finished.slice(0, maxPlayers).filter(f => f === true).length;
-        if (finCount >= (maxPlayers - 1)) {
-            if (isHost) {
-                document.getElementById('host-controls').innerHTML = `<button onclick="restartGame()" style="background:green; color:white; width:100%; padding:12px; border:none; font-weight:bold; border-radius:5px;">RESTART GAME</button><button onclick="newGameSetup()" style="background:red; color:white; width:100%; padding:12px; border:none; font-weight:bold; border-radius:5px; margin-top:5px;">NEW GAME</button>`;
-            } else {
-                document.getElementById('ritual-log').innerHTML = "<span style='color:gold;'>GAME OVER. WAIT FOR HOST.</span>";
-            }
-        }
-    }
+    async function takePenalty(p) { document.getElementById('overlay').style.display = "none"; await animateMove(myRole, Math.max(1, positions[myRole] - p)); sync(`Burned!`); }
+    async function takeReward(r) { document.getElementById('overlay').style.display = "none"; await animateMove(myRole, Math.min(100, positions[myRole] + r)); sync(`Blessed!`); }
+    async function takeVoid() { document.getElementById('overlay').style.display = "none"; await animateMove(myRole, 1); sync(`Banished to Void!`); }
 
     function handleJudgment(winnerIdx) {
         const overlay = document.getElementById('overlay');
@@ -318,48 +278,48 @@
         overlay.style.display = "flex";
         if (myRole === winnerIdx) { 
             document.getElementById('res-img').src = "https://img.icons8.com/emoji/96/000000/trophy-emoji.png";
-            text.innerHTML = `<span style="color:gold;">🏆 YOU ESCAPED! 🏆</span><br><small>See you later, noobs!</small>`; 
+            text.innerHTML = `<span style="color:gold;">🏆 ESCAPED! 🏆</span><br><small>See you later, noobs!</small>`; 
         } else { 
             playSound('noob');
             document.getElementById('res-img').src = "https://img.icons8.com/emoji/96/000000/skull-emoji.png";
             const joke = jokes[Math.floor(Math.random() * jokes.length)];
-            text.innerHTML = `<span style="color:red;">💀 YOU LOST! 💀</span><br><small>${playerNames[winnerIdx]} won.</small><br><p style="color:white; font-style:italic; font-size:14px;">"${joke}"</p>`; 
+            text.innerHTML = `<span style="color:red;">💀 LOST! 💀</span><br><small>${playerNames[winnerIdx]} won.</small><br><p style="color:white; font-style:italic; font-size:14px;">"${joke}"</p>`; 
         }
         document.getElementById('event-actions').innerHTML = `<p style="color:#666; font-size:10px;">CLOSING IN 4s...</p>`;
         setTimeout(() => { overlay.style.display = 'none'; checkEndState(); }, 4000);
     }
 
+    function checkEndState() {
+        let finCount = finished.slice(0, maxPlayers).filter(f => f === true).length;
+        if (finCount >= (maxPlayers - 1)) {
+            if (isHost) document.getElementById('host-controls').innerHTML = `<button onclick="restartGame()" style="background:green; color:white; width:100%; padding:12px; border:none; font-weight:bold; border-radius:5px;">RESTART</button>`;
+            else document.getElementById('ritual-log').innerHTML = "<span style='color:gold;'>GAME OVER. HOST RESTARTING...</span>";
+        }
+    }
+
     function restartGame() {
-        positions = [1,1,1,1]; turn = 0; finished = [false, false, false, false]; inventory.passes = 0;
+        positions = [1,1,1,1]; turn = 0; finished = [false, false, false, false]; inventory.passes = 0; inventory.usedCount = 0;
         document.getElementById('host-controls').innerHTML = "";
         broadcast({ type: 'restart' });
     }
-
-    function newGameSetup() { broadcast({ type: 'reset_to_setup' }); }
 
     async function handleData(d) {
         if (isHost) guestConns.forEach(c => { if(c && c.peer !== d.fromPeer) c.send(d); });
         if (d.type === 'chat') {
             const f = document.getElementById('emoji-flash');
-            document.getElementById('flash-content').innerText = d.text;
-            document.getElementById('flash-user').innerText = d.sender;
+            document.getElementById('flash-content').innerText = d.text; document.getElementById('flash-user').innerText = d.sender;
             f.style.display = "flex"; setTimeout(() => f.style.display = "none", 1500);
         }
         if (d.type === 'sabotage') { await animateMove(d.to, d.newPos); if(d.to === myRole) playSound('noob'); updateUI(); }
         if (d.type === 'sync') { if(!isMoving) positions = d.pos; turn = d.turn; document.getElementById('ritual-log').innerText = d.msg; updateUI(); checkEndState(); }
         if (d.type === 'init') { myRole = d.role; maxPlayers = d.max; positions = d.pos; turn = d.turn; finished = d.fin; playerNames = d.names; document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
         if (d.type === 'finish') { finished[d.winner] = true; updateUI(); handleJudgment(d.winner); }
-        if (d.type === 'restart') { positions = [1,1,1,1]; turn = 0; finished = [false, false, false, false]; inventory.passes = 0; document.getElementById('overlay').style.display='none'; document.getElementById('host-controls').innerHTML = ""; updateUI(); }
-        if (d.type === 'reset_to_setup') { if(isHost) showHostUI(); document.getElementById('setup-screen').style.display = 'flex'; }
+        if (d.type === 'restart') { positions = [1,1,1,1]; turn = 0; finished = [false, false, false, false]; inventory.passes = 0; inventory.usedCount = 0; document.getElementById('host-controls').innerHTML = ""; updateUI(); }
     }
 
     function broadcast(d) { handleData(d); guestConns.forEach(c => { if(c) c.send(d); }); }
     function sync(msg) { nextTurn(); const d = { type: 'sync', pos: positions, turn: turn, msg: msg, fin: finished }; if (isHost) broadcast(d); else hostConn.send(d); updateUI(); }
-    function nextTurn() { 
-        let remaining = finished.slice(0, maxPlayers).filter(f => !f);
-        if(remaining.length <= 1) return;
-        do { turn = (turn + 1) % maxPlayers; } while (finished[turn]); 
-    }
+    function nextTurn() { let rem = finished.slice(0, maxPlayers).filter(f => !f); if(rem.length <= 1) return; do { turn = (turn + 1) % maxPlayers; } while (finished[turn]); }
 
     function updateUI() {
         const active = (turn === myRole && !finished[myRole] && !isMoving);
@@ -368,9 +328,8 @@
         if(finished[myRole]) btn.innerText = "SPECTATING...";
         else btn.innerText = active ? "ROLL DICE" : (isMoving ? "MOVING..." : playerNames[turn].toUpperCase() + "'S TURN");
         btn.className = active ? "btn-active" : "btn-wait";
-        document.getElementById('inv-display').innerText = `CARDS: ${inventory.passes}`;
-        const sBar = document.getElementById('soul-bar');
-        sBar.innerHTML = "";
+        document.getElementById('inv-display').innerText = `CARDS: ${inventory.passes} (${inventory.usedCount}/5 USED)`;
+        const sBar = document.getElementById('soul-bar'); sBar.innerHTML = "";
         playerNames.slice(0, maxPlayers).forEach((name, i) => {
             const div = document.createElement('div');
             div.className = `soul-id ${i === myRole ? 'my-identity' : ''} ${i === turn ? 'active-turn' : ''}`;
@@ -380,16 +339,12 @@
         document.querySelectorAll('.player').forEach(p => p.remove());
         positions.slice(0, maxPlayers).forEach((pos, i) => {
             const cell = document.getElementById('cell-' + pos);
-            if (cell) {
-                const dot = document.createElement('div');
-                dot.className = `player p${i}`;
-                cell.appendChild(dot);
-            }
+            if (cell) { const dot = document.createElement('div'); dot.className = `player p${i}`; cell.appendChild(dot); }
         });
     }
 
-    function sendEmoji(e) { const m = { type: 'chat', sender: playerNames[myRole], text: e, fromPeer: peer.id }; if (isHost) broadcast(m); else hostConn.send(m); }
     function copyL() { const i = document.getElementById('lInp'); i.select(); navigator.clipboard.writeText(i.value); alert("Link Copied!"); }
+    function sendEmoji(e) { const m = { type: 'chat', sender: playerNames[myRole], text: e, fromPeer: peer.id }; if (isHost) broadcast(m); else hostConn.send(m); }
     function closeOverlaySync(m) { document.getElementById('overlay').style.display="none"; sync(m); }
     function sendInit() { guestConns.forEach((c, i) => { if(c) c.send({ type: 'init', role: i+1, max: maxPlayers, pos: positions, turn: turn, fin: finished, names: playerNames }) }); document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
 </script>
