@@ -370,11 +370,12 @@
     function sendInit() { guestConns.forEach((c, i) => { if(c) c.send({ type: 'init', role: i+1, max: maxPlayers, pos: positions, turn: turn, fin: finished, names: playerNames }) }); document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
 </script>
 <script>
+    let botIsThinking = false; // NEW: Lock to prevent double-rolling
+
     function startBotMode() {
         const nameInput = document.getElementById('user-name').value.trim();
         if(!nameInput) { alert("Enter a name first!"); return; }
         
-        // Setup Bot State
         isVsCPU = true;
         isHost = true;
         myRole = 0;
@@ -382,7 +383,6 @@
         playerNames[0] = nameInput;
         playerNames[1] = "HELL_BOT";
         
-        // Hide Auth & Peer Elements
         document.getElementById('auth-screen').style.display = 'none';
         document.getElementById('conn-status').style.display = 'none';
         
@@ -391,14 +391,15 @@
     }
 
     async function botLogicTurn() {
-        // Prevent bot from rolling if it's already moving or not its turn
-        if (finished[1] || isMoving || turn !== 1) return;
+        // Strict Turn Check & Lock
+        if (!isVsCPU || turn !== 1 || finished[1] || isMoving || botIsThinking) return;
         
-        isMoving = true;
-        document.getElementById('ritual-log').innerText = "HELL_BOT is rolling...";
-        await new Promise(r => setTimeout(r, 1500));
+        botIsThinking = true; // Lock the bot
         
         // 1. Roll Dice
+        document.getElementById('ritual-log').innerText = "HELL_BOT is rolling...";
+        await new Promise(r => setTimeout(r, 1200));
+        
         let roll = Math.floor(Math.random() * 6) + 1;
         document.getElementById('dice-box').innerText = "🎲 " + roll;
         playSound('dice');
@@ -410,59 +411,63 @@
         // 3. Check Win
         if (positions[1] >= 100) {
             finished[1] = true;
-            isMoving = false;
+            botIsThinking = false;
             handleJudgment(1);
             return;
         }
 
-        // 4. Bot Event (Same images/logic as multiplayer)
+        // 4. Bot Event (Logic & Images)
         let rand = Math.random() * 100;
-        let botActionMsg = "Bot moved.";
-        
-        // Helper for random images
+        let botActionMsg = "Bot finished turn.";
         const getBotImg = (type) => type + (Math.floor(Math.random() * 5) + 1) + ".jpg";
 
-        // Show Overlay for Bot just like multiplayer
         const overlay = document.getElementById('overlay');
         const actions = document.getElementById('event-actions');
         const resText = document.getElementById('res-text');
         const resImg = document.getElementById('res-img');
         
-        if (rand < 20) { // VOID
-            overlay.style.display = "flex";
-            resText.style.color = "#ff00ff";
-            resText.innerText = "BOT FALLS INTO THE VOID!";
-            resImg.src = getBotImg('h');
-            actions.innerHTML = `<p style="color:white;">Processing...</p>`;
-            await new Promise(r => setTimeout(r, 2000));
-            await animateMove(1, 1);
-            botActionMsg = "Bot banished to Void!";
-        } 
-        else if (rand < 40) { // TRAP
-            overlay.style.display = "flex";
-            resText.style.color = "red";
-            resText.innerText = "BOT HIT A TRAP: -10";
-            resImg.src = getBotImg('h');
-            actions.innerHTML = `<p style="color:white;">Processing...</p>`;
-            await new Promise(r => setTimeout(r, 2000));
-            await animateMove(1, Math.max(1, positions[1] - 10));
-            botActionMsg = "Bot hit a trap!";
-        }
-        else if (rand < 60) { // REWARD
-            overlay.style.display = "flex";
-            resText.style.color = "#00ff00";
-            resText.innerText = "BOT BLESSED: +5";
-            resImg.src = getBotImg('f');
-            actions.innerHTML = `<p style="color:white;">Processing...</p>`;
-            await new Promise(r => setTimeout(r, 2000));
-            await animateMove(1, Math.min(100, positions[1] + 5));
-            botActionMsg = "Bot was blessed!";
+        // Match the 30% chance in your original player code
+        if (Math.random() < 0.30) {
+            if (rand < 20) { // VOID
+                overlay.style.display = "flex";
+                resText.style.color = "#ff00ff";
+                resText.innerText = "HELL_BOT: BANISHED TO VOID!";
+                resImg.src = getBotImg('h');
+                actions.innerHTML = `<p style="color:white;">FALLING...</p>`;
+                await new Promise(r => setTimeout(r, 2000));
+                await animateMove(1, 1);
+                botActionMsg = "Bot hit the Void!";
+            } 
+            else if (rand < 60) { // TRAP
+                overlay.style.display = "flex";
+                resText.style.color = "red";
+                resText.innerText = "HELL_BOT: TRAPPED! -10";
+                resImg.src = getBotImg('h');
+                actions.innerHTML = `<p style="color:white;">BURNING...</p>`;
+                await new Promise(r => setTimeout(r, 2000));
+                await animateMove(1, Math.max(1, positions[1] - 10));
+                botActionMsg = "Bot hit a trap!";
+            }
+            else { // REWARD
+                overlay.style.display = "flex";
+                resText.style.color = "#00ff00";
+                resText.innerText = "HELL_BOT: BLESSED! +5";
+                resImg.src = getBotImg('f');
+                actions.innerHTML = `<p style="color:white;">RISING...</p>`;
+                await new Promise(r => setTimeout(r, 2000));
+                await animateMove(1, Math.min(100, positions[1] + 5));
+                botActionMsg = "Bot was blessed!";
+            }
         }
 
-        // Close overlay and PASS TURN
+        // 5. Finalize and PASS TURN
         overlay.style.display = "none";
-        isMoving = false;
-        sync(botActionMsg); // This switches turn back to you (turn 0)
+        
+        // Small delay to let the UI breathe before turn switches
+        await new Promise(r => setTimeout(r, 500));
+        
+        botIsThinking = false; // Release the lock
+        sync(botActionMsg);    // This sets turn = 0
     }
 </script>
 </body>
