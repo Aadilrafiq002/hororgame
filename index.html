@@ -7,28 +7,39 @@
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg: #050505; --accent: #bc0000; }
-        body { background: var(--bg); color: #eee; font-family: 'Courier New', monospace; margin: 0; text-align: center; overflow-x: hidden; touch-action: manipulation; }
+        body { background: var(--bg); color: #eee; font-family: monospace; margin: 0; text-align: center; overflow-x: hidden; touch-action: manipulation; }
+        
+        /* Screens */
         #auth-screen, #char-screen, #win-overlay { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         input { padding: 12px; margin: 5px; width: 80%; max-width: 300px; background: #111; border: 1px solid #444; color: white; border-radius: 5px; }
-        .char-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 90%; max-width: 400px; margin-top: 20px; }
-        .char-card { background: #0a0a0a; border: 2px solid #222; padding: 15px; border-radius: 12px; cursor: pointer; }
-        .char-card.selected { border: 2px solid gold; box-shadow: 0 0 15px gold; }
-        .char-card.taken { opacity: 0.2; filter: grayscale(1); pointer-events: none; }
-        .player { width: 32px; height: 32px; position: absolute; z-index: 50; display: flex; align-items: center; justify-content: center; font-size: 24px; transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
-        .aura-dragon { filter: drop-shadow(0 0 8px red); } .aura-lion { filter: drop-shadow(0 0 8px orange); }
-        .aura-tiger { filter: drop-shadow(0 0 8px white); } .aura-owl { filter: drop-shadow(0 0 8px purple); }
-        .active-turn { transform: scale(1.5); animation: pulse 0.8s infinite alternate; z-index: 100; }
-        @keyframes pulse { from { filter: brightness(1); } to { filter: brightness(1.8) drop-shadow(0 0 20px gold); } }
-        #game-container { display: grid; grid-template-columns: repeat(10, 1fr); width: 95vw; max-width: 400px; aspect-ratio: 1/1; margin: 10px auto; border: 3px solid #333; background: #000; }
-        .cell { border: 0.1px solid #111; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #222; position: relative; }
-        .panel { background: #0a0a0a; padding: 15px; border-radius: 15px; width: 90%; max-width: 400px; border: 1px solid #333; margin: 10px auto; }
-        #roll-btn { padding: 18px; width: 100%; border-radius: 8px; font-size: 18px; font-weight: bold; border: none; }
-        .btn-active { background: linear-gradient(45deg, #bc0000, #ff4500); color: white; }
+
+        /* Char Selection */
+        .char-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 90%; max-width: 400px; }
+        .char-card { background: #0a0a0a; border: 1px solid #333; padding: 15px; border-radius: 8px; cursor: pointer; }
+        .char-card.selected { border-color: gold; color: gold; }
+        .char-card.taken { opacity: 0.1; filter: grayscale(1); pointer-events: none; }
+
+        /* Dots - Small & Fast */
+        .player { width: 24px; height: 24px; position: absolute; z-index: 50; display: flex; align-items: center; justify-content: center; font-size: 14px; border-radius: 50%; background: #222; border: 1px solid #444; transition: all 0.4s ease; }
+        .active-turn { border: 2px solid gold; box-shadow: 0 0 10px gold; z-index: 100; }
+
+        /* Board */
+        #game-container { display: grid; grid-template-columns: repeat(10, 1fr); width: 98vw; max-width: 420px; aspect-ratio: 1/1; margin: 5px auto; border: 2px solid #222; background: #000; }
+        .cell { border: 0.1px solid #111; display: flex; align-items: center; justify-content: center; font-size: 9px; color: #222; position: relative; }
+        
+        /* Controls */
+        .panel { background: #0a0a0a; padding: 15px; width: 100%; box-sizing: border-box; margin-bottom: 140px; }
+        #roll-btn { padding: 18px; width: 90%; max-width: 400px; border-radius: 8px; font-size: 18px; font-weight: bold; border: none; }
+        .btn-active { background: #bc0000; color: white; cursor: pointer; }
         .btn-wait { background: #1a1a1a; color: #444; }
-        #chat-window { position: fixed; bottom: 0; width: 100%; background: #000; border-top: 2px solid #222; }
-        .emoji-grid { display: grid; grid-template-columns: repeat(5, 1fr); padding: 10px; gap: 5px; }
-        #emoji-flash { position: fixed; inset: 0; display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 10000; pointer-events: none; background: rgba(0,0,0,0.7); }
-        #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9000; }
+
+        /* Emoji Keyboard */
+        .emoji-bar { position: fixed; bottom: 0; width: 100%; background: #000; border-top: 2px solid #222; display: grid; grid-template-columns: repeat(5, 1fr); padding: 10px; gap: 5px; box-sizing: border-box; }
+        .emoji-bar button { font-size: 22px; padding: 10px; background: #111; border: 1px solid #333; border-radius: 5px; color: white; }
+
+        /* Overlays */
+        #emoji-flash { position: fixed; inset: 0; display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 10000; pointer-events: none; background: rgba(0,0,0,0.6); }
+        #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9000; padding: 20px; }
     </style>
 </head>
 <body>
@@ -41,49 +52,54 @@
     </div>
 
     <div id="char-screen" style="display:none;">
-        <h2 style="color:gold;">PICK A SPIRIT</h2>
+        <h2 style="color:gold;">SELECT SPIRIT</h2>
         <div class="char-grid" id="char-options">
-            <div class="char-card" id="card-0" onclick="selectChar(0)"><div>🐉</div>DRAGON</div>
-            <div class="char-card" id="card-1" onclick="selectChar(1)"><div>🦁</div>LION</div>
-            <div class="char-card" id="card-2" onclick="selectChar(2)"><div>🐯</div>TIGER</div>
-            <div class="char-card" id="card-3" onclick="selectChar(3)"><div>🦉</div>OWL</div>
+            <div class="char-card" id="card-0" onclick="selectChar(0)">🐉 DRAGON</div>
+            <div class="char-card" id="card-1" onclick="selectChar(1)">🦁 LION</div>
+            <div class="char-card" id="card-2" onclick="selectChar(2)">🐯 TIGER</div>
+            <div class="char-card" id="card-3" onclick="selectChar(3)">🦉 OWL</div>
         </div>
-        <button id="confirm-char" onclick="confirmSelection()" style="margin-top:20px; padding:15px 40px; background:gold; display:none;">ACTIVATE</button>
-        <p id="wait-msg" style="display:none; color:gray;">WAITING FOR OTHERS...</p>
+        <button id="confirm-char" onclick="confirmSelection()" style="margin-top:20px; padding:15px; width:80%; background:gold; display:none; border:none; font-weight:bold;">ACTIVATE</button>
     </div>
 
     <div id="win-overlay" style="display:none;">
-        <h1 style="color:gold;">CONQUERED</h1>
+        <h1 style="color:gold;">RANKINGS</h1>
         <div id="rankings" style="color:white; font-size:20px; margin:20px;"></div>
-        <button onclick="location.reload()" style="padding:15px; background:red; color:white;">RESTART</button>
+        <button onclick="location.reload()" style="padding:15px; background:red; color:white; border:none;">RESTART</button>
     </div>
 
-    <div id="ritual-log" style="color:#444; padding:5px; font-size:12px;">Ready...</div>
+    <div id="ritual-log" style="color:#444; font-size:11px; padding:5px;">Waiting for connection...</div>
     <div id="game-container"></div>
 
-    <div class="panel" style="margin-bottom: 150px;">
+    <div class="panel">
         <div id="dice-box" style="font-size: 24px;">🎲</div>
         <button id="roll-btn" class="btn-wait" onclick="playTurn()" disabled>WAITING...</button>
     </div>
 
-    <div id="chat-window"><div class="emoji-grid">
-        <button onclick="sendEmoji('👻')">👻</button><button onclick="sendEmoji('💀')">💀</button>
-        <button onclick="sendEmoji('🔥')">🔥</button><button onclick="sendEmoji('😂')">😂</button>
+    <div class="emoji-bar">
+        <button onclick="sendEmoji('👻')">👻</button>
+        <button onclick="sendEmoji('💀')">💀</button>
+        <button onclick="sendEmoji('🔥')">🔥</button>
+        <button onclick="sendEmoji('😱')">😱</button>
         <button onclick="sendEmoji('🤡')">🤡</button>
-    </div></div>
+    </div>
 
-    <div id="emoji-flash"><h1 id="f-emoji" style="font-size:100px;"></h1><p id="f-user" style="color:gold;"></p></div>
+    <div id="emoji-flash"><h1 id="f-emoji" style="font-size:100px;"></h1><p id="f-user" style="color:red;"></p></div>
 
     <div id="overlay">
-        <h2 id="res-text" style="color:white;"></h2>
-        <div id="event-actions" style="width:80%;"></div>
+        <img id="res-img" src="" style="width:100%; max-height:40vh; border-radius:10px; margin-bottom:20px; border:1px solid #bc0000;">
+        <h2 id="res-text" style="color:white; margin-bottom:20px;"></h2>
+        <div id="event-actions" style="width:90%;"></div>
     </div>
 
 <script>
     const ADMIN_USER = "aadil", ADMIN_PASS = "aadil123";
-    const CHARS = [{n:"Dragon", i:"🐉", c:"aura-dragon"}, {n:"Lion", i:"🦁", c:"aura-lion"}, {n:"Tiger", i:"🐯", c:"aura-tiger"}, {n:"Owl", i:"🦉", c:"aura-owl"}];
+    const CHARS = ["🐉","🦁","🐯","🦉"];
+    const sounds = { dice: new Audio('dice.mp3'), trap: new Audio('noob.mp3') };
+    function playS(n) { if(sounds[n]) sounds[n].play().catch(()=>{}); }
+
     let peer, hostConn, guestConns = [], myRole = -1, isHost = false, maxPlayers = 2;
-    let playerNames = [], playerChars = [-1,-1,-1,-1], positions = [1,1,1,1], turn = 0, finished = [false,false,false,false], winners = [];
+    let playerNames = [], playerChars = [-1,-1,-1,-1], positions = [1,1,1,1], turn = 0, finished = [false,false,false,false], winners = [], inventory = { cards: 0 };
 
     function handleAuth() {
         const name = document.getElementById('user-name').value.trim();
@@ -96,8 +112,8 @@
 
     function showSetup() {
         document.body.innerHTML += `<div id="setup" style="position:fixed;inset:0;background:#000;z-index:10000;display:flex;flex-direction:column;justify-content:center;align-items:center;">
-            <h3>PLAYERS</h3><select id="p_count" style="padding:10px;"><option value="2">2 Players</option><option value="3">3 Players</option><option value="4">4 Players</option></select>
-            <button onclick="initHost()" style="margin-top:20px;padding:15px;background:red;color:white;">CREATE GATE</button></div>`;
+            <h3>PLAYERS</h3><select id="p_count" style="padding:15px;width:200px;margin-bottom:20px;"><option value="2">2 Players</option><option value="3">3 Players</option><option value="4">4 Players</option></select>
+            <button onclick="initHost()" style="padding:15px;background:red;color:white;width:200px;border:none;font-weight:bold;">CREATE REALM</button></div>`;
     }
 
     function initHost() {
@@ -107,20 +123,18 @@
         peer.on('open', id => {
             myRole = 0; const link = window.location.origin + window.location.pathname + '#' + id;
             document.body.innerHTML += `<div id="lobby" style="position:fixed;inset:0;background:#000;z-index:10000;display:flex;flex-direction:column;justify-content:center;align-items:center;">
-                <p>LINK:</p><input type="text" value="${link}" readonly style="text-align:center;"><p id="wait_count">Waiting (0/${maxPlayers-1})</p></div>`;
+                <p>SHARE LINK:</p><input type="text" value="${link}" readonly style="text-align:center;"><p id="wait_count">Waiting (0/${maxPlayers-1})</p></div>`;
         });
         peer.on('connection', c => {
-            c.on('open', () => {
-                c.on('data', d => {
-                    if(d.type==='join') {
-                        guestConns.push(c); playerNames.push(d.name);
-                        document.getElementById('wait_count').innerText = `Waiting (${guestConns.length}/${maxPlayers-1})`;
-                        if(playerNames.length === maxPlayers) {
-                            document.getElementById('lobby').remove();
-                            broadcast({type:'start_char', names:playerNames, max:maxPlayers});
-                        }
-                    } else handleData(d);
-                });
+            c.on('data', d => {
+                if(d.type==='join') {
+                    guestConns.push(c); playerNames.push(d.name);
+                    document.getElementById('wait_count').innerText = `Waiting (${guestConns.length}/${maxPlayers-1})`;
+                    if(playerNames.length === maxPlayers) {
+                        document.getElementById('lobby').remove();
+                        broadcast({type:'start_char', names:playerNames, max:maxPlayers});
+                    }
+                } else handleData(d);
             });
         });
     }
@@ -136,24 +150,22 @@
         });
     }
 
-    let selectedIdx = -1;
+    let selIdx = -1;
     function selectChar(i) {
         if(playerChars.includes(i)) return;
         document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected'));
         document.getElementById('card-'+i).classList.add('selected');
         document.getElementById('confirm-char').style.display='block';
-        selectedIdx = i;
+        selIdx = i;
     }
 
     function confirmSelection() {
         document.getElementById('confirm-char').style.display='none';
-        document.getElementById('wait-msg').style.display='block';
-        if(isHost) handleData({type:'pick', role:0, char:selectedIdx});
-        else hostConn.send({type:'pick', role:myRole, char:selectedIdx});
+        broadcast({type:'pick', role:myRole, char:selIdx});
     }
 
     function handleData(d) {
-        if(isHost) guestConns.forEach(c => c.send(d));
+        if(isHost) guestConns.forEach(c => { if(c.peer !== d.from) c.send(d); });
         if(d.type==='start_char') { 
             playerNames = d.names; maxPlayers = d.max; 
             myRole = playerNames.indexOf(localStorage.getItem('gn'));
@@ -162,21 +174,17 @@
         if(d.type==='pick') {
             playerChars[d.role] = d.char;
             document.getElementById('card-'+d.char).classList.add('taken');
-            if(isHost) {
-                let count = 0; for(let i=0; i<maxPlayers; i++) if(playerChars[i] !== -1) count++;
-                if(count === maxPlayers) broadcast({type:'go', chars:playerChars});
-            }
+            if(isHost && playerChars.filter(x => x !== -1).length === maxPlayers) broadcast({type:'go', chars:playerChars});
         }
         if(d.type==='go') { playerChars = d.chars; document.getElementById('char-screen').style.display='none'; updateUI(); }
         if(d.type==='sync') { positions = d.pos; turn = d.turn; document.getElementById('ritual-log').innerText = d.msg; updateUI(); }
         if(d.type==='chat') { showFlash(d); }
-        if(d.type==='fin') {
-            if(!winners.includes(d.name)) winners.push(d.name); finished[d.idx] = true;
-            if(winners.length >= maxPlayers - 1) showWin(); updateUI();
-        }
+        if(d.type==='sab') { positions[d.to] = d.newPos; updateUI(); }
+        if(d.type==='fin') { if(!winners.includes(d.name)) winners.push(d.name); finished[d.idx] = true; if(winners.length >= maxPlayers-1) showWin(); updateUI(); }
     }
 
     function playTurn() {
+        playS('dice');
         let r = Math.floor(Math.random()*6)+1;
         document.getElementById('dice-box').innerText = "🎲 "+r;
         positions[myRole] += r;
@@ -184,51 +192,60 @@
             positions[myRole] = 100; finished[myRole] = true;
             broadcast({type:'fin', idx:myRole, name:playerNames[myRole]});
         } else {
-            if(Math.random() < 0.3) triggerEvent(); else sync(`${playerNames[myRole]} moved`);
+            if(Math.random() < 0.3) triggerEvent(); else sync(`${playerNames[myRole]} advances`);
         }
     }
 
     function triggerEvent() {
         const ov = document.getElementById('overlay'); ov.style.display="flex";
-        let isTrap = Math.random() < 0.5;
-        document.getElementById('res-text').innerText = isTrap ? "TRAP: -10 STEPS" : "SAFE ZONE";
-        let b = `<button onclick="resolveEvent(${isTrap ? -10 : 0})" style="padding:15px;width:100%;background:red;color:white;">CONTINUE</button>`;
-        document.getElementById('event-actions').innerHTML = b;
+        let isTrap = Math.random() < 0.6;
+        document.getElementById('res-img').src = (isTrap?'h':'f') + (Math.floor(Math.random()*5)+1) + ".jpg";
+        if(!isTrap) {
+            inventory.cards++; document.getElementById('res-text').innerText = "POWER CARD FOUND!";
+            document.getElementById('event-actions').innerHTML = `<button onclick="cls('Spirit Blessed')" style="padding:15px;background:green;color:white;width:100%;border:none;">CLAIM</button>`;
+        } else {
+            playS('trap');
+            document.getElementById('res-text').innerText = "TRAP: -10 STEPS";
+            let b = `<button onclick="tTrap()" style="padding:15px;background:#444;color:white;width:100%;border:none;margin-bottom:10px;">ACCEPT</button>`;
+            if (inventory.cards > 0) {
+                for (let i=0; i<maxPlayers; i++) if(i !== myRole && !finished[i]) 
+                    b += `<button onclick="sab(${i})" style="padding:15px;background:purple;color:white;width:100%;border:none;margin-bottom:5px;">CURSE ${playerNames[i]}</button>`;
+            }
+            document.getElementById('event-actions').innerHTML = b;
+        }
     }
 
-    function resolveEvent(val) {
-        positions[myRole] = Math.max(1, positions[myRole] + val);
-        document.getElementById('overlay').style.display="none";
-        sync(val < 0 ? "Hit a trap!" : "Escaped danger");
-    }
+    function sab(t) { inventory.cards--; positions[t] = Math.max(1, positions[t]-10); document.getElementById('overlay').style.display="none"; broadcast({type:'sab', to:t, newPos:positions[t]}); sync(`Cursed ${playerNames[t]}`); }
+    function tTrap() { positions[myRole] = Math.max(1, positions[myRole]-10); document.getElementById('overlay').style.display="none"; sync(`Weakened`); }
+    function cls(m) { document.getElementById('overlay').style.display="none"; sync(m); }
 
     function updateUI() {
         const b = document.getElementById('roll-btn');
-        if(finished[myRole]) { b.innerText = "SPECTATING"; b.disabled = true; b.className="btn-wait"; }
+        if(finished[myRole]) { b.innerText = "WAITING"; b.disabled = true; b.className="btn-wait"; }
         else {
             let active = (turn === myRole);
-            b.disabled = !active; b.innerText = active ? "YOUR TURN" : `${playerNames[turn]}'s Turn`;
+            b.disabled = !active; b.innerText = active ? "ROLL DICE" : playerNames[turn];
             b.className = active ? "btn-active" : "btn-wait";
         }
         document.querySelectorAll('.player').forEach(p => p.remove());
         for(let i=0; i<maxPlayers; i++) {
             let cell = document.getElementById('cell-'+positions[i]);
-            if(cell) {
-                let p = document.createElement('div'); p.className = `player ${CHARS[playerChars[i]].c} ${turn===i?'active-turn':''}`;
-                p.innerText = CHARS[playerChars[i]].i; cell.appendChild(p);
+            if(cell && playerChars[i] !== -1) {
+                let p = document.createElement('div'); p.className = `player ${turn===i?'active-turn':''}`;
+                p.innerText = CHARS[playerChars[i]]; cell.appendChild(p);
             }
         }
     }
 
-    function broadcast(d) { handleData(d); if(isHost) guestConns.forEach(c => c.send(d)); else hostConn.send(d); }
-    function sync(m) { nextTurn(); broadcast({type:'sync', pos:positions, turn:turn, msg:m}); }
-    function nextTurn() { do { turn = (turn + 1) % maxPlayers; } while(finished[turn]); }
+    function broadcast(d) { d.from = peer.id; handleData(d); if(isHost) guestConns.forEach(c => c.send(d)); else if(hostConn) hostConn.send(d); }
+    function sync(m) { nextT(); broadcast({type:'sync', pos:positions, turn:turn, msg:m}); }
+    function nextT() { do { turn = (turn + 1) % maxPlayers; } while(finished[turn]); }
     function sendEmoji(e) { broadcast({type:'chat', user:playerNames[myRole], emoji:e}); }
     function showFlash(d) {
         const f = document.getElementById('emoji-flash'); document.getElementById('f-emoji').innerText = d.emoji;
-        document.getElementById('f-user').innerText = d.user; f.style.display="flex"; setTimeout(()=>f.style.display="none", 1200);
+        document.getElementById('f-user').innerText = d.user; f.style.display="flex"; setTimeout(()=>f.style.display="none", 1000);
     }
-    function showWin() { document.getElementById('win-overlay').style.display='flex'; document.getElementById('rankings').innerText = winners.join(' > '); }
+    function showWin() { document.getElementById('win-overlay').style.display='flex'; document.getElementById('rankings').innerText = winners.map((n,i)=>`${i+1}. ${n}`).join('\n'); }
 
     const board = document.getElementById('game-container');
     for(let i=0; i<100; i++) {
