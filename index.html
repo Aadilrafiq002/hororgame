@@ -9,6 +9,11 @@
         :root { --bg: #050505; --accent: #bc0000; --panel: #1a1a1a; --fire: #ff4500; }
         body { background: var(--bg); color: #cfcfcf; font-family: 'Courier New', monospace; margin: 0; text-align: center; overflow-x: hidden; touch-action: manipulation; }
         
+        /* Mobile Status Indicator */
+        #conn-status { position: fixed; top: 0; left: 0; right: 0; height: 3px; background: #555; z-index: 10000; }
+        #conn-status.online { background: #00ff00; box-shadow: 0 0 5px #00ff00; }
+        #conn-status.offline { background: #ff0000; }
+
         #auth-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         #auth-screen input { padding: 12px; margin: 5px; width: 80%; max-width: 300px; background: #111; border: 1px solid #444; color: white; border-radius: 5px; }
 
@@ -43,6 +48,10 @@
     </style>
 </head>
 <body>
+
+    <div id="conn-status"></div>
+
+    <audio id="bg-music" loop><source src="bg.mp3" type="audio/mpeg"></audio>
 
     <div id="auth-screen">
         <h1 style="color:var(--accent); font-size: 40px; letter-spacing: 5px;">100 GATES</h1>
@@ -101,6 +110,42 @@
     const sounds = { dice: new Audio('dice.mp3'), jump: new Audio('jump.mp3'), noob: new Audio('noob.mp3') };
     function playSound(n) { const s = sounds[n].cloneNode(); s.play().catch(()=>{}); }
 
+    // --- MOBILE PERSISTENCE LOGIC ---
+    function initPeer(id = null) {
+        if (peer) peer.destroy();
+        peer = id ? new Peer(id) : new Peer();
+
+        peer.on('open', (newId) => {
+            document.getElementById('conn-status').className = 'online';
+            if (isHost) {
+                const link = window.location.origin + window.location.pathname + '#' + newId;
+                updateHostUI(link);
+            }
+        });
+
+        peer.on('disconnected', () => {
+            document.getElementById('conn-status').className = 'offline';
+            peer.reconnect();
+        });
+
+        peer.on('close', () => { document.getElementById('conn-status').className = 'offline'; });
+        peer.on('error', (err) => { console.error(err); document.getElementById('conn-status').className = 'offline'; });
+
+        if (isHost) setupHostListeners();
+    }
+
+    // Keep mobile CPU from sleeping the connection
+    setInterval(() => {
+        if (peer && peer.disconnected && !peer.destroyed) peer.reconnect();
+    }, 3000);
+
+    // Re-trigger logic when coming back from WhatsApp
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === 'visible' && peer && peer.disconnected) {
+            peer.reconnect();
+        }
+    });
+
     // Board Generation
     const boardEl = document.getElementById('game-container');
     const cells = [];
@@ -123,6 +168,11 @@
         const name = document.getElementById('user-name').value.trim();
         const pass = document.getElementById('admin-pass').value.trim();
         const rID = window.location.hash.substring(1);
+        
+        // Music Start
+        const bgm = document.getElementById('bg-music');
+        if(bgm) { bgm.volume = 0.4; bgm.play().catch(()=>{}); }
+
         if(!name) return;
         localStorage.setItem('gate_username', name);
 
@@ -135,7 +185,7 @@
             document.getElementById('auth-screen').style.display = 'none'; 
             startAsGuest(rID, name); 
         } else { 
-            alert("No Lobby ID found! Ensure you use a lobby link."); 
+            alert("No Lobby ID! Use a link from the host."); 
         }
     }
 
@@ -147,12 +197,15 @@
     function startAsHost() {
         maxPlayers = parseInt(document.getElementById('p-count').value);
         playerNames[0] = localStorage.getItem('gate_username');
-        peer = new Peer();
-        peer.on('open', id => { 
-            myRole = 0; 
-            const link = window.location.origin + window.location.pathname + '#' + id;
-            document.getElementById('ui-box').innerHTML = `<p>SHARE LINK:</p><input type="text" value="${link}" id="lInp" readonly style="width:100%; padding:8px; background:#000; color:white;"><button onclick="copyL()" style="width:100%; margin-top:10px;">COPY</button><button onclick="sendInit()" style="background:green; color:white; width:100%; margin-top:15px; padding:10px; border:none; font-weight:bold;">FORCE START</button>`;
-        });
+        myRole = 0;
+        initPeer();
+    }
+
+    function updateHostUI(link) {
+        document.getElementById('ui-box').innerHTML = `<p>SHARE LINK:</p><input type="text" value="${link}" id="lInp" readonly style="width:100%; padding:8px; background:#000; color:white;"><button onclick="copyL()" style="width:100%; margin-top:10px;">COPY & WHATSAPP</button><button onclick="sendInit()" style="background:green; color:white; width:100%; margin-top:15px; padding:10px; border:none; font-weight:bold;">FORCE START</button>`;
+    }
+
+    function setupHostListeners() {
         peer.on('connection', c => {
             c.on('data', d => {
                 if(d.type === 'join_request') {
@@ -168,9 +221,11 @@
     function startAsGuest(id, myName) { 
         peer = new Peer(); 
         peer.on('open', () => { 
-            hostConn = peer.connect(id); 
+            document.getElementById('conn-status').className = 'online';
+            hostConn = peer.connect(id, {reliable: true}); 
             hostConn.on('open', () => { hostConn.send({ type: 'join_request', name: myName }); });
             hostConn.on('data', d => handleData(d)); 
+            hostConn.on('close', () => { document.getElementById('conn-status').className = 'offline'; });
         }); 
     }
 
