@@ -58,7 +58,7 @@
         <div id="ui-box" class="panel"></div>
     </div>
 
-    <div id="ritual-log">Ready to summon...</div>
+    <div id="ritual-log">Summoning spirits...</div>
     <div id="game-container"></div>
 
     <div class="panel" style="margin-bottom: 130px;">
@@ -90,18 +90,35 @@
     let playerNames = ["P1", "P2", "P3", "P4"];
     let isMoving = false;
 
-    const jokes = ["Are you a turtle?", "Grandma is faster!", "Reverse winning!", "Typical noob!", "Snail speed!"];
+    const jokes = [
+        "Are you a turtle? Because you move so slow!",
+        "Even my grandma reaches 100 faster than you!",
+        "You're not losing, you're just winning in reverse!",
+        "Did you trip on the first gate? Typical noob!",
+        "I've seen snails with more speed than you!"
+    ];
 
-    // BOARD GENERATION
+    const sounds = { dice: new Audio('dice.mp3'), jump: new Audio('jump.mp3'), noob: new Audio('noob.mp3') };
+    function playSound(n) { const s = sounds[n].cloneNode(); s.play().catch(()=>{}); }
+
+    // Board Generation
     const boardEl = document.getElementById('game-container');
+    const cells = [];
     for (let i = 0; i < 100; i++) {
         let row = Math.floor(i / 10), col = i % 10, num;
         if (row % 2 === 0) num = 100 - (row * 10 + col); else num = 100 - (row * 10 + (9 - col));
         let cell = document.createElement('div'); cell.className = 'cell'; cell.id = 'cell-' + num; cell.innerText = num;
+        let glow = document.createElement('div'); glow.className = 'fire-glow'; cell.appendChild(glow);
         boardEl.appendChild(cell);
+        cells.push(glow);
     }
 
-    // AUTH & SETUP
+    function flickerFire() {
+        cells.forEach(c => { if (Math.random() < 0.05) { c.style.opacity = Math.random() * 0.8; setTimeout(() => { c.style.opacity = 0; }, 200 + Math.random() * 800); } });
+        requestAnimationFrame(flickerFire);
+    }
+    flickerFire();
+
     function handleAuth() {
         const name = document.getElementById('user-name').value.trim();
         const pass = document.getElementById('admin-pass').value.trim();
@@ -117,84 +134,81 @@
             isHost = false; 
             document.getElementById('auth-screen').style.display = 'none'; 
             startAsGuest(rID, name); 
-        } else { alert("Use a Lobby Link to join as a guest."); }
+        } else { 
+            alert("No Lobby ID found! Ensure you use a lobby link."); 
+        }
     }
 
     function showHostUI() {
         document.getElementById('setup-screen').style.display = 'flex';
         document.getElementById('ui-box').innerHTML = `
-            <h3>LOBBY SETTINGS</h3>
-            <select id="p-count" style="width:100%; padding:10px; margin-bottom:10px;">
-                <option value="2">2 Players</option><option value="3">3 Players</option><option value="4">4 Players</option>
+            <p style="color:red; font-weight:bold;">GATE KEEPER</p>
+            <select id="p-count" style="width:100%; padding:15px; background:#000; color:white;">
+                <option value="2">2 Players</option>
+                <option value="3">3 Players</option>
+                <option value="4">4 Players</option>
             </select>
-            <button onclick="startAsHost()" style="width:100%; padding:15px; background:red; color:white; border:none;">OPEN THE GATE</button>`;
+            <button onclick="startAsHost()" style="background:red; color:white; width:100%; margin-top:15px; padding:15px; border:none; font-weight:bold;">ACTIVATE GATE</button>`;
     }
-
-    // MOBILE FIX: Reconnect on tab switch
-    document.addEventListener("visibilitychange", () => {
-        if (!document.hidden && peer && peer.disconnected) {
-            console.log("Reconnecting peer...");
-            peer.reconnect();
-        }
-    });
 
     function startAsHost() {
         maxPlayers = parseInt(document.getElementById('p-count').value);
         playerNames[0] = localStorage.getItem('gate_username');
-        
-        // Peer config with longer disconnect timeouts for mobile
-        peer = new Peer({ debug: 1 });
-
+        peer = new Peer();
         peer.on('open', id => { 
             myRole = 0; 
             const link = window.location.origin + window.location.pathname + '#' + id;
             document.getElementById('ui-box').innerHTML = `
-                <p>SHARE THIS LINK:</p>
+                <p>SHARE LINK:</p>
                 <input type="text" value="${link}" id="lInp" readonly style="width:100%; padding:8px; background:#000; color:white;">
-                <button onclick="copyL()" style="width:100%; margin:10px 0; padding:10px;">COPY LINK</button>
-                <div style="border:1px solid #444; padding:10px; margin-top:10px;">
-                    <p id="joined-count">Joined: 1 / ${maxPlayers}</p>
-                    <button onclick="sendInit()" style="background:green; color:white; width:100%; padding:15px; border:none; font-weight:bold;">START GAME NOW</button>
-                </div>`;
+                <button onclick="copyL()" style="width:100%; margin-top:10px; padding:10px;">COPY LINK</button>
+                <button onclick="sendInit()" style="background:green; color:white; width:100%; margin-top:15px; padding:15px; border:none; font-weight:bold;">START GAME NOW</button>
+                <p style="font-size:10px; color:#888; margin-top:10px;">Waiting for souls to join...</p>`;
         });
-
         peer.on('connection', c => {
-            c.on('open', () => {
-                // When guest connects
-                c.on('data', d => {
-                    if(d.type === 'join_request') {
-                        if (!playerNames.includes(d.name)) {
-                            guestConns.push(c);
-                            playerNames[guestConns.length] = d.name;
-                            document.getElementById('joined-count').innerText = `Joined: ${guestConns.length + 1} / ${maxPlayers}`;
-                            if(guestConns.length === maxPlayers - 1) sendInit();
-                        }
+            c.on('data', d => {
+                if(d.type === 'join_request') {
+                    let existingIdx = playerNames.indexOf(d.name);
+                    if(existingIdx !== -1 && existingIdx < maxPlayers) { 
+                        guestConns[existingIdx - 1] = c; 
+                        sendInit(); 
+                    } else if (guestConns.length < maxPlayers - 1) { 
+                        guestConns.push(c); 
+                        playerNames[guestConns.length] = d.name; 
+                        if(guestConns.length === maxPlayers-1) sendInit(); 
                     }
-                    handleData(d);
-                });
+                }
+                handleData(d);
             });
         });
-
-        peer.on('disconnected', () => peer.reconnect());
     }
 
     function startAsGuest(id, myName) { 
         peer = new Peer(); 
         peer.on('open', () => { 
-            hostConn = peer.connect(id, { reliable: true }); 
-            hostConn.on('open', () => { 
-                hostConn.send({ type: 'join_request', name: myName }); 
-                document.getElementById('ritual-log').innerText = "Connected! Waiting for host...";
-            });
+            hostConn = peer.connect(id); 
+            hostConn.on('open', () => { hostConn.send({ type: 'join_request', name: myName }); });
             hostConn.on('data', d => handleData(d)); 
-            hostConn.on('close', () => { alert("Host disconnected. Refresh."); });
         }); 
-        peer.on('disconnected', () => peer.reconnect());
     }
 
-    // CORE GAME LOGIC
+    async function animateMove(playerIdx, targetPos) {
+        isMoving = true;
+        let current = positions[playerIdx];
+        const step = targetPos > current ? 1 : -1;
+        while (current !== targetPos) {
+            current += step;
+            positions[playerIdx] = current;
+            updateUI();
+            await new Promise(r => setTimeout(r, 150)); 
+        }
+        isMoving = false;
+        updateUI();
+    }
+
     async function playTurn() {
         if(finished[myRole] || isMoving) return;
+        playSound('dice');
         let roll = Math.floor(Math.random() * 6) + 1;
         document.getElementById('dice-box').innerText = "🎲 " + roll;
         let target = Math.min(100, positions[myRole] + roll);
@@ -211,34 +225,37 @@
         else { sync(`${playerNames[myRole]} moved`); }
     }
 
-    async function animateMove(pIdx, target) {
-        isMoving = true;
-        while (positions[pIdx] !== target) {
-            positions[pIdx] += (target > positions[pIdx] ? 1 : -1);
-            updateUI();
-            await new Promise(r => setTimeout(r, 150)); 
-        }
-        isMoving = false; updateUI();
-    }
-
     function triggerResult() {
         const overlay = document.getElementById('overlay');
+        const actions = document.getElementById('event-actions');
         overlay.style.display = "flex";
         let isTrap = Math.random() < 0.60;
         document.getElementById('res-img').src = (isTrap ? 'h' : 'f') + (Math.floor(Math.random()*5)+1) + ".jpg";
         if (!isTrap) {
             inventory.passes++;
+            document.getElementById('res-text').style.color = "gold";
             document.getElementById('res-text').innerText = "SABOTAGE CARD!";
-            document.getElementById('event-actions').innerHTML = `<button onclick="closeOverlaySync('Found card')" style="width:100%; padding:15px; background:green; color:white;">COLLECT</button>`;
+            actions.innerHTML = `<button onclick="closeOverlaySync('Found card')" style="width:100%; padding:15px; background:green; color:white; border:none; border-radius:5px;">COLLECT</button>`;
         } else {
+            playSound('jump');
+            document.getElementById('res-text').style.color = "white";
             document.getElementById('res-text').innerText = "TRAP: -10";
-            let btns = `<button onclick="takeTrap()" style="width:100%; padding:15px; background:#444; color:white;">ACCEPT</button>`;
+            let btns = `<button onclick="takeTrap()" style="width:100%; padding:15px; background:#444; color:white; border:none; border-radius:5px;">ACCEPT</button>`;
             if (inventory.passes > 0) {
-                for (let i=0; i<maxPlayers; i++) if(i !== myRole && !finished[i]) 
-                    btns += `<button onclick="useSabotage(${i})" style="background:purple; color:white; margin-top:5px; padding:10px; width:100%;">TRAP ${playerNames[i]}</button>`;
+                for (let i=0; i<maxPlayers; i++) if(i !== myRole && !finished[i]) btns += `<button onclick="useSabotage(${i})" style="background:purple; color:white; margin-top:5px; padding:10px; width:100%; border:none; border-radius:5px;">TRAP ${playerNames[i]}</button>`;
             }
-            document.getElementById('event-actions').innerHTML = btns;
+            actions.innerHTML = btns;
         }
+    }
+
+    async function useSabotage(target) {
+        inventory.passes--;
+        document.getElementById('overlay').style.display = "none";
+        let newPos = Math.max(1, positions[target]-10);
+        await animateMove(target, newPos);
+        const d = { type: 'sabotage', to: target, newPos: newPos, fromPeer: peer.id };
+        if (isHost) broadcast(d); else hostConn.send(d);
+        sync(`Sabotaged ${playerNames[target]}!`);
     }
 
     async function takeTrap() { 
@@ -247,86 +264,82 @@
         sync(`Caught in flames!`); 
     }
 
-    async function useSabotage(target) {
-        inventory.passes--; document.getElementById('overlay').style.display = "none";
-        let newPos = Math.max(1, positions[target]-10);
-        await animateMove(target, newPos);
-        const d = { type: 'sabotage', to: target, newPos: newPos };
-        if (isHost) broadcast(d); else hostConn.send(d);
-        sync(`Sabotaged ${playerNames[target]}!`);
+    function checkEndState() {
+        let finCount = finished.slice(0, maxPlayers).filter(f => f === true).length;
+        if (finCount >= (maxPlayers - 1)) {
+            if (isHost) {
+                document.getElementById('host-controls').innerHTML = `<button onclick="restartGame()" style="background:green; color:white; width:100%; padding:12px; border:none; font-weight:bold; border-radius:5px;">RESTART GAME</button><button onclick="newGameSetup()" style="background:red; color:white; width:100%; padding:12px; border:none; font-weight:bold; border-radius:5px; margin-top:5px;">NEW GAME</button>`;
+            } else {
+                document.getElementById('ritual-log').innerHTML = "<span style='color:gold;'>GAME OVER. WAIT FOR HOST.</span>";
+            }
+        }
     }
 
     function handleJudgment(winnerIdx) {
         const overlay = document.getElementById('overlay');
+        const text = document.getElementById('res-text');
         overlay.style.display = "flex";
-        document.getElementById('res-img').src = "https://img.icons8.com/emoji/96/000000/skull-emoji.png";
-        document.getElementById('res-text').innerText = playerNames[winnerIdx] + " ESCAPED!";
-        document.getElementById('event-actions').innerHTML = `<p>Closing in 4s...</p>`;
+        if (myRole === winnerIdx) { 
+            document.getElementById('res-img').src = "https://img.icons8.com/emoji/96/000000/trophy-emoji.png";
+            text.innerHTML = `<span style="color:gold;">🏆 YOU ESCAPED! 🏆</span><br><small>See you later, noobs!</small>`; 
+        } else { 
+            playSound('noob');
+            document.getElementById('res-img').src = "https://img.icons8.com/emoji/96/000000/skull-emoji.png";
+            const joke = jokes[Math.floor(Math.random() * jokes.length)];
+            text.innerHTML = `<span style="color:red;">💀 YOU LOST! 💀</span><br><small>${playerNames[winnerIdx]} won.</small><br><p style="color:white; font-style:italic; font-size:14px;">"${joke}"</p>`; 
+        }
+        document.getElementById('event-actions').innerHTML = `<p style="color:#666; font-size:10px;">CLOSING IN 4s...</p>`;
         setTimeout(() => { overlay.style.display = 'none'; checkEndState(); }, 4000);
     }
 
-    function checkEndState() {
-        if (finished.slice(0, maxPlayers).filter(f => f).length >= maxPlayers - 1) {
-            if (isHost) document.getElementById('host-controls').innerHTML = `<button onclick="restartGame()" style="background:green; color:white; width:100%; padding:12px;">RESTART</button>`;
-        }
-    }
-
     function restartGame() {
-        positions = [1,1,1,1]; turn = 0; finished = [false, false, false, false];
+        positions = [1,1,1,1]; turn = 0; finished = [false, false, false, false]; inventory.passes = 0;
+        document.getElementById('host-controls').innerHTML = "";
         broadcast({ type: 'restart' });
     }
 
-    // NETWORK SYNC
+    function newGameSetup() { broadcast({ type: 'reset_to_setup' }); }
+
     async function handleData(d) {
         if (isHost) guestConns.forEach(c => { if(c && c.peer !== d.fromPeer) c.send(d); });
-        
-        if (d.type === 'init') {
-            myRole = d.role; maxPlayers = d.max; positions = d.pos; turn = d.turn;
-            playerNames = d.names; document.getElementById('setup-screen').style.display = 'none';
-            updateUI();
-        }
-        if (d.type === 'sync') { 
-            if(!isMoving) positions = d.pos; 
-            turn = d.turn; 
-            document.getElementById('ritual-log').innerText = d.msg; 
-            updateUI(); 
-        }
-        if (d.type === 'sabotage') { await animateMove(d.to, d.newPos); updateUI(); }
-        if (d.type === 'finish') { finished[d.winner] = true; handleJudgment(d.winner); updateUI(); }
-        if (d.type === 'restart') { positions = [1,1,1,1]; turn = 0; finished = [false, false, false, false]; updateUI(); }
         if (d.type === 'chat') {
             const f = document.getElementById('emoji-flash');
             document.getElementById('flash-content').innerText = d.text;
+            document.getElementById('flash-user').innerText = d.sender;
             f.style.display = "flex"; setTimeout(() => f.style.display = "none", 1500);
         }
+        if (d.type === 'sabotage') { await animateMove(d.to, d.newPos); if(d.to === myRole) playSound('noob'); updateUI(); }
+        if (d.type === 'sync') { if(!isMoving) positions = d.pos; turn = d.turn; document.getElementById('ritual-log').innerText = d.msg; updateUI(); checkEndState(); }
+        if (d.type === 'init') { myRole = d.role; maxPlayers = d.max; positions = d.pos; turn = d.turn; finished = d.fin; playerNames = d.names; document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
+        if (d.type === 'finish') { finished[d.winner] = true; updateUI(); handleJudgment(d.winner); }
+        if (d.type === 'restart') { positions = [1,1,1,1]; turn = 0; finished = [false, false, false, false]; inventory.passes = 0; document.getElementById('overlay').style.display='none'; document.getElementById('host-controls').innerHTML = ""; updateUI(); }
+        if (d.type === 'reset_to_setup') { if(isHost) showHostUI(); document.getElementById('setup-screen').style.display = 'flex'; }
     }
 
-    function broadcast(d) { handleData(d); guestConns.forEach(c => c && c.send(d)); }
-    function sync(msg) { 
-        do { turn = (turn + 1) % maxPlayers; } while (finished[turn]);
-        const d = { type: 'sync', pos: positions, turn: turn, msg: msg };
-        if (isHost) broadcast(d); else hostConn.send(d);
-        updateUI();
+    function broadcast(d) { handleData(d); guestConns.forEach(c => { if(c) c.send(d); }); }
+    function sync(msg) { nextTurn(); const d = { type: 'sync', pos: positions, turn: turn, msg: msg, fin: finished }; if (isHost) broadcast(d); else hostConn.send(d); updateUI(); }
+    function nextTurn() { 
+        let remaining = finished.slice(0, maxPlayers).filter(f => !f);
+        if(remaining.length <= 1) return;
+        do { turn = (turn + 1) % maxPlayers; } while (finished[turn]); 
     }
 
     function updateUI() {
         const active = (turn === myRole && !finished[myRole] && !isMoving);
         const btn = document.getElementById('roll-btn');
         btn.disabled = !active;
-        btn.innerText = active ? "ROLL DICE" : playerNames[turn] + "'s turn";
+        if(finished[myRole]) btn.innerText = "SPECTATING...";
+        else btn.innerText = active ? "ROLL DICE" : (isMoving ? "MOVING..." : playerNames[turn].toUpperCase() + "'S TURN");
         btn.className = active ? "btn-active" : "btn-wait";
-        
-        // Update Soul Bar
+        document.getElementById('inv-display').innerText = `CARDS: ${inventory.passes}`;
         const sBar = document.getElementById('soul-bar');
         sBar.innerHTML = "";
         playerNames.slice(0, maxPlayers).forEach((name, i) => {
             const div = document.createElement('div');
             div.className = `soul-id ${i === myRole ? 'my-identity' : ''} ${i === turn ? 'active-turn' : ''}`;
-            div.innerHTML = `<span class="soul-dot p${i}"></span> ${name}`;
+            div.innerHTML = `<span class="soul-dot p${i}"></span> ${finished[i] ? '🏁 ' : ''}${name}`;
             sBar.appendChild(div);
         });
-
-        // Update Players on Board
         document.querySelectorAll('.player').forEach(p => p.remove());
         positions.slice(0, maxPlayers).forEach((pos, i) => {
             const cell = document.getElementById('cell-' + pos);
@@ -338,16 +351,10 @@
         });
     }
 
-    function sendEmoji(e) { const m = { type: 'chat', text: e }; if (isHost) broadcast(m); else hostConn.send(m); }
-    function copyL() { const i = document.getElementById('lInp'); i.select(); document.execCommand('copy'); alert("Link Copied!"); }
+    function sendEmoji(e) { const m = { type: 'chat', sender: playerNames[myRole], text: e, fromPeer: peer.id }; if (isHost) broadcast(m); else hostConn.send(m); }
+    function copyL() { const i = document.getElementById('lInp'); i.select(); navigator.clipboard.writeText(i.value); alert("Link Copied!"); }
     function closeOverlaySync(m) { document.getElementById('overlay').style.display="none"; sync(m); }
-    function sendInit() { 
-        guestConns.forEach((c, i) => { 
-            if(c) c.send({ type: 'init', role: i+1, max: maxPlayers, pos: positions, turn: turn, names: playerNames });
-        }); 
-        document.getElementById('setup-screen').style.display = 'none'; 
-        updateUI(); 
-    }
+    function sendInit() { guestConns.forEach((c, i) => { if(c) c.send({ type: 'init', role: i+1, max: maxPlayers, pos: positions, turn: turn, fin: finished, names: playerNames }) }); document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
 </script>
 </body>
 </html>
