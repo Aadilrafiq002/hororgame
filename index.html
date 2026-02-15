@@ -115,45 +115,95 @@
         const name = document.getElementById('user-name').value.trim();
         const pass = document.getElementById('admin-pass').value.trim();
         const rID = window.location.hash.substring(1);
-        if(!name) return;
+        if(!name) { alert("Enter a name!"); return; }
+        
         localStorage.setItem('gate_username', name);
-        if (name.toLowerCase() === ADMIN_USER && pass === ADMIN_PASS) { isHost = true; document.getElementById('auth-screen').style.display = 'none'; showHostUI(); }
-        else if (rID) { isHost = false; document.getElementById('auth-screen').style.display = 'none'; startAsGuest(rID, name); }
-        else { alert("Credentials Error!"); }
+
+        if (name.toLowerCase() === ADMIN_USER && pass === ADMIN_PASS) { 
+            isHost = true; 
+            document.getElementById('auth-screen').style.display = 'none'; 
+            showHostUI(); 
+        } 
+        else if (rID) { 
+            isHost = false; 
+            document.getElementById('auth-screen').style.display = 'none'; 
+            startAsGuest(rID, name); 
+        } 
+        else { 
+            alert("Credentials Error or No Room ID found in link!"); 
+        }
     }
 
     function showHostUI() {
         document.getElementById('setup-screen').style.display = 'flex';
-        document.getElementById('ui-box').innerHTML = `<p style="color:red; font-weight:bold;">GATE KEEPER</p><select id="p-count" style="width:100%; padding:15px; background:#000; color:white;"><option value="2">2 Players</option><option value="3">3 Players</option><option value="4">4 Players</option></select><button onclick="startAsHost()" style="background:red; color:white; width:100%; margin-top:15px; padding:15px; border:none; font-weight:bold;">ACTIVATE GATE</button>`;
+        document.getElementById('ui-box').innerHTML = `
+            <p style="color:red; font-weight:bold; font-size:20px;">GATE KEEPER</p>
+            <p>Select Player Count:</p>
+            <select id="p-count" style="width:100%; padding:15px; background:#000; color:white; border:1px solid #444;">
+                <option value="2">2 Players</option>
+                <option value="3">3 Players</option>
+                <option value="4">4 Players</option>
+            </select>
+            <button onclick="startAsHost()" style="background:red; color:white; width:100%; margin-top:15px; padding:15px; border:none; font-weight:bold; cursor:pointer;">ACTIVATE GATE</button>`;
     }
 
     function startAsHost() {
         maxPlayers = parseInt(document.getElementById('p-count').value);
         playerNames[0] = localStorage.getItem('gate_username');
+        
+        // Disable button while connecting
+        document.getElementById('ui-box').innerHTML = "<p>Connecting to the Abyss...</p>";
+        
         peer = new Peer();
         peer.on('open', id => { 
             myRole = 0; 
             const link = window.location.origin + window.location.pathname + '#' + id;
-            document.getElementById('ui-box').innerHTML = `<p>SHARE LINK:</p><input type="text" value="${link}" id="lInp" readonly style="width:100%; padding:8px; background:#000; color:white;"><button onclick="copyL()" style="width:100%; margin-top:10px;">COPY</button><button onclick="sendInit()" style="background:green; color:white; width:100%; margin-top:15px; padding:10px; border:none; font-weight:bold;">FORCE START</button>`;
+            document.getElementById('ui-box').innerHTML = `
+                <p>ROOM READY</p>
+                <p style="font-size:10px;">Share this link with players:</p>
+                <input type="text" value="${link}" id="lInp" readonly style="width:100%; padding:8px; background:#000; color:white; border:1px solid #444;">
+                <button onclick="copyL()" style="width:100%; margin-top:10px; padding:10px; background:#444; color:white; border:none;">COPY LINK</button>
+                <p id="wait-msg" style="color:gold; font-size:12px; margin-top:10px;">Waiting for players...</p>
+                <button onclick="sendInit()" style="background:green; color:white; width:100%; margin-top:15px; padding:10px; border:none; font-weight:bold; cursor:pointer;">START NOW</button>`;
         });
+
         peer.on('connection', c => {
             c.on('data', d => {
                 if(d.type === 'join_request') {
                     let existingIdx = playerNames.indexOf(d.name);
-                    if(existingIdx !== -1 && existingIdx < maxPlayers) { guestConns[existingIdx - 1] = c; sendInit(); }
-                    else if (guestConns.length < maxPlayers - 1) { guestConns.push(c); playerNames[guestConns.length] = d.name; if(guestConns.length === maxPlayers-1) sendInit(); }
+                    if(existingIdx !== -1 && existingIdx < maxPlayers) { 
+                        guestConns[existingIdx - 1] = c; 
+                        sendInit(); 
+                    } else if (guestConns.length < maxPlayers - 1) { 
+                        guestConns.push(c); 
+                        playerNames[guestConns.length] = d.name; 
+                        document.getElementById('wait-msg').innerText = `Joined: ${playerNames.slice(0, guestConns.length+1).join(", ")}`;
+                        if(guestConns.length === maxPlayers-1) sendInit(); 
+                    }
                 }
                 handleData(d);
             });
         });
+
+        peer.on('error', err => {
+            alert("PeerJS Error: " + err.type);
+            location.reload();
+        });
     }
 
     function startAsGuest(id, myName) { 
+        document.getElementById('setup-screen').style.display = 'flex';
+        document.getElementById('ui-box').innerHTML = "<p>Knocking on the Gate...</p>";
+        
         peer = new Peer(); 
         peer.on('open', () => { 
             hostConn = peer.connect(id); 
-            hostConn.on('open', () => { hostConn.send({ type: 'join_request', name: myName }); });
+            hostConn.on('open', () => { 
+                hostConn.send({ type: 'join_request', name: myName }); 
+                document.getElementById('ui-box').innerHTML = "<p>Connected! Waiting for Host to start...</p>";
+            });
             hostConn.on('data', d => handleData(d)); 
+            hostConn.on('error', () => alert("Connection Lost"));
         }); 
     }
 
@@ -168,6 +218,7 @@
             await new Promise(r => setTimeout(r, 200)); 
         }
         isMoving = false;
+        updateUI();
     }
 
     async function playTurn() {
@@ -259,7 +310,6 @@
 
         actions.innerHTML = `<p style="color:#666; font-size:10px;">CLOSING IN 4 SECONDS...</p>`;
         
-        // Auto-close overlay after 4 seconds
         setTimeout(() => {
             overlay.style.display = 'none';
             checkEndState();
@@ -328,7 +378,7 @@
 
     function sendEmoji(e) { const m = { type: 'chat', sender: playerNames[myRole], text: e, fromPeer: peer.id }; if (isHost) broadcast(m); else hostConn.send(m); }
     function copyL() { const i = document.getElementById('lInp'); i.select(); navigator.clipboard.writeText(i.value); alert("Link Copied!"); }
-    function closeOverlaySync(m) { document.getElementById('overlay').style.display=\"none\"; sync(m); }
+    function closeOverlaySync(m) { document.getElementById('overlay').style.display="none"; sync(m); }
     function sendInit() { guestConns.forEach((c, i) => { if(c) c.send({ type: 'init', role: i+1, max: maxPlayers, pos: positions, turn: turn, fin: finished, names: playerNames }) }); document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
 </script>
 </body>
