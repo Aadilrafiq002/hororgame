@@ -44,6 +44,8 @@
 
         #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9000; padding: 20px; }
         #emoji-flash { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9500; pointer-events: none; }
+        
+        .mode-btn { width: 80%; padding: 15px; margin: 10px; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; color: white; }
     </style>
 </head>
 <body>
@@ -53,9 +55,16 @@
 
     <div id="auth-screen">
         <h1 style="color:var(--accent); font-size: 40px; letter-spacing: 5px;">100 GATES</h1>
-        <input type="text" id="user-name" placeholder="Name">
-        <input type="password" id="admin-pass" placeholder="Admin Key">
-        <button onclick="handleAuth()" style="width:80%; padding:15px; background:var(--accent); color:white; border:none; font-weight:bold;">ENTER THE VOID</button>
+        <div id="login-inputs">
+            <input type="text" id="user-name" placeholder="Name">
+            <input type="password" id="admin-pass" placeholder="Admin Key">
+            <button onclick="handleAuth()" class="mode-btn" style="background:var(--accent);">ENTER THE VOID</button>
+        </div>
+        <div id="mode-selection" style="display:none; width: 100%; flex-direction: column; align-items: center;">
+            <p style="color: gold;">CHOOSE YOUR PATH</p>
+            <button onclick="startSinglePlayer()" class="mode-btn" style="background:#444;">PLAY WITH COMPUTER</button>
+            <button onclick="showHostUI()" class="mode-btn" style="background:#bc0000;">PLAY WITH FRIENDS</button>
+        </div>
     </div>
 
     <div id="soul-bar"></div>
@@ -95,8 +104,8 @@
     let myRole = -1, isHost = false, turn = 0, positions = [1,1,1,1], maxPlayers = 2;
     let personalRolls = 0, inventory = { passes: 0, usedCount: 0 }, finished = [false, false, false, false];
     let playerNames = ["P1", "P2", "P3", "P4"];
-    let isMoving = false;
-    let botRoles = []; // Tracking which roles are computers
+    let isMoving = false, isSinglePlayer = false;
+    let botRoles = [];
 
     const jokes = [
         "Are you a turtle? Because you move so slow!",
@@ -114,7 +123,7 @@
         peer = id ? new Peer(id) : new Peer();
         peer.on('open', (newId) => {
             document.getElementById('conn-status').className = 'online';
-            if (isHost) updateHostUI(window.location.origin + window.location.pathname + '#' + newId);
+            if (isHost && !isSinglePlayer) updateHostUI(window.location.origin + window.location.pathname + '#' + newId);
         });
         peer.on('disconnected', () => { document.getElementById('conn-status').className = 'offline'; peer.reconnect(); });
         if (isHost) setupHostListeners();
@@ -147,59 +156,51 @@
         if(bgm) { bgm.volume = 0.4; bgm.play().catch(()=>{}); }
         if(!name) return;
         localStorage.setItem('gate_username', name);
+        
         if (name.toLowerCase() === ADMIN_USER && pass === ADMIN_PASS) {
-            isHost = true; document.getElementById('auth-screen').style.display = 'none'; showHostUI(); 
+            document.getElementById('login-inputs').style.display = 'none';
+            document.getElementById('mode-selection').style.display = 'flex';
         } else if (rID) {
             isHost = false; document.getElementById('auth-screen').style.display = 'none'; startAsGuest(rID, name); 
-        } else { alert("No Lobby ID!"); }
+        } else { alert("Admins only start lobbies. Guests must use a link!"); }
+    }
+
+    function startSinglePlayer() {
+        isSinglePlayer = true;
+        isHost = true;
+        maxPlayers = 2; // Default 1v1 against Bot
+        myRole = 0;
+        playerNames[0] = localStorage.getItem('gate_username');
+        playerNames[1] = "HELL_BOT";
+        botRoles = [1];
+        document.getElementById('auth-screen').style.display = 'none';
+        initPeer(); 
+        setTimeout(() => { updateUI(); }, 500);
     }
 
     function showHostUI() {
+        isSinglePlayer = false;
+        isHost = true;
+        document.getElementById('auth-screen').style.display = 'none';
         document.getElementById('setup-screen').style.display = 'flex';
-        document.getElementById('ui-box').innerHTML = `
-            <p style="color:red; font-weight:bold;">GATE KEEPER</p>
-            <select id="p-count" style="width:100%; padding:15px; background:#000; color:white;">
-                <option value="2">2 Players</option>
-                <option value="3">3 Players</option>
-                <option value="4">4 Players</option>
-            </select>
-            <div style="margin: 10px 0; color: #888;">
-                <input type="checkbox" id="add-bots"> Add Bots for empty slots
-            </div>
-            <button onclick="startAsHost()" style="background:red; color:white; width:100%; margin-top:15px; padding:15px; border:none; font-weight:bold;">ACTIVATE GATE</button>
-        `;
+        document.getElementById('ui-box').innerHTML = `<p style="color:red; font-weight:bold;">GATE KEEPER</p><select id="p-count" style="width:100%; padding:15px; background:#000; color:white;"><option value="2">2 Players</option><option value="3">3 Players</option><option value="4">4 Players</option></select><button onclick="startAsHost()" style="background:red; color:white; width:100%; margin-top:15px; padding:15px; border:none; font-weight:bold;">ACTIVATE GATE</button>`;
     }
 
     function startAsHost() {
         maxPlayers = parseInt(document.getElementById('p-count').value);
         playerNames[0] = localStorage.getItem('gate_username');
-        const fillBots = document.getElementById('add-bots').checked;
-        if(fillBots) {
-            for(let i=1; i<maxPlayers; i++) {
-                botRoles.push(i);
-                playerNames[i] = "BOT_" + i;
-            }
-        }
         myRole = 0; initPeer();
     }
 
     function updateHostUI(link) {
-        document.getElementById('ui-box').innerHTML = `<p>SHARE LINK:</p><input type="text" value="${link}" id="lInp" readonly style="width:100%; padding:8px; background:#000; color:white;"><button onclick="copyL()" style="width:100%; margin-top:10px;">COPY & WHATSAPP</button><p style="font-size:10px; color:gray;">Bots will fill any empty slots when you force start.</p><button onclick="sendInit()" style="background:green; color:white; width:100%; margin-top:15px; padding:10px; border:none; font-weight:bold;">FORCE START</button>`;
+        document.getElementById('ui-box').innerHTML = `<p>SHARE LINK:</p><input type="text" value="${link}" id="lInp" readonly style="width:100%; padding:8px; background:#000; color:white;"><button onclick="copyL()" style="width:100%; margin-top:10px;">COPY & WHATSAPP</button><button onclick="sendInit()" style="background:green; color:white; width:100%; margin-top:15px; padding:10px; border:none; font-weight:bold;">FORCE START</button>`;
     }
 
     function setupHostListeners() {
         peer.on('connection', c => {
             c.on('data', d => {
                 if(d.type === 'join_request') {
-                    let slot = -1;
-                    for(let i=1; i<maxPlayers; i++) if(!guestConns[i-1]) { slot = i; break; }
-                    if (slot !== -1) {
-                        guestConns[slot-1] = c;
-                        playerNames[slot] = d.name;
-                        // Remove bot role if a human joins that slot
-                        botRoles = botRoles.filter(r => r !== slot);
-                        if(guestConns.filter(x=>x).length === maxPlayers-1) sendInit();
-                    }
+                    if (guestConns.length < maxPlayers - 1) { guestConns.push(c); playerNames[guestConns.length] = d.name; if(guestConns.length === maxPlayers-1) sendInit(); }
                 }
                 handleData(d);
             });
@@ -232,10 +233,10 @@
 
     async function playTurn() {
         if(finished[myRole] || isMoving) return;
-        processAction(myRole);
+        await processTurnAction(myRole);
     }
 
-    async function processAction(roleIdx) {
+    async function processTurnAction(roleIdx) {
         playSound('dice');
         let roll = Math.floor(Math.random() * 6) + 1;
         document.getElementById('dice-box').innerText = "🎲 " + roll;
@@ -255,13 +256,16 @@
             if (personalRolls >= 2 || Math.random() < 0.30) { personalRolls = 0; triggerResult(); } 
             else { sync(`${playerNames[roleIdx]} moved`); }
         } else if (isHost && botRoles.includes(roleIdx)) {
-            // Simple Bot logic for results
-            if (Math.random() < 0.30) {
-                 botTriggerResult(roleIdx);
-            } else {
-                 sync(`${playerNames[roleIdx]} moved`);
-            }
+            if (Math.random() < 0.30) botTriggerResult(roleIdx);
+            else sync(`${playerNames[roleIdx]} moved`);
         }
+    }
+
+    async function botTriggerResult(botIdx) {
+        let rand = Math.random() * 100;
+        if (rand < 25) { await animateMove(botIdx, 1); sync(`${playerNames[botIdx]} fell into the VOID!`); }
+        else if (rand < 65) { let bonus = Math.floor(Math.random() * 5) + 5; await animateMove(botIdx, Math.min(100, positions[botIdx] + bonus)); sync(`${playerNames[botIdx]} BLESSED!`); }
+        else { await animateMove(botIdx, Math.max(1, positions[botIdx] - 10)); sync(`${playerNames[botIdx]} hit a TRAP!`); }
     }
 
     function triggerResult() {
@@ -274,10 +278,7 @@
         const getRandImg = (type) => type + (Math.floor(Math.random() * 5) + 1) + ".jpg";
 
         if (rand < 20) { 
-            playSound('jump');
-            resText.style.color = "#ff00ff"; 
-            resText.innerText = "THE VOID: BACK TO GATE 1";
-            resImg.src = getRandImg('h');
+            playSound('jump'); resText.style.color = "#ff00ff"; resText.innerText = "THE VOID: BACK TO GATE 1"; resImg.src = getRandImg('h');
             let btns = `<button onclick="takeVoid()" style="width:100%; padding:15px; background:black; color:white; border:1px solid #ff00ff; border-radius:5px; font-weight:bold;">FALL ALONE</button>`;
             if (inventory.passes > 0 && inventory.usedCount < 5) {
                 for (let i=0; i<maxPlayers; i++) if(i !== myRole && !finished[i]) btns += `<button onclick="useVoidSabotage(${i})" style="background:#500050; color:white; margin-top:5px; padding:10px; width:100%; border:none; border-radius:5px;">BANISH ${playerNames[i].toUpperCase()}</button>`;
@@ -285,44 +286,20 @@
             actions.innerHTML = btns;
         } 
         else if (rand < 35) { 
-            inventory.passes++;
-            resText.style.color = "gold"; 
-            resText.innerText = "SABOTAGE CARD FOUND!";
-            resImg.src = getRandImg('f');
+            inventory.passes++; resText.style.color = "gold"; resText.innerText = "SABOTAGE CARD FOUND!"; resImg.src = getRandImg('f');
             actions.innerHTML = `<button onclick="closeOverlaySync('Found card')" style="width:100%; padding:15px; background:green; color:white; border:none; border-radius:5px; font-weight:bold;">COLLECT</button>`;
         }
         else if (rand < 67) { 
-            let bonus = Math.floor(Math.random() * 5) + 5; 
-            resText.style.color = "#00ff00"; 
-            resText.innerText = "BLESSED: +" + bonus;
-            resImg.src = getRandImg('f');
+            let bonus = Math.floor(Math.random() * 5) + 5; resText.style.color = "#00ff00"; resText.innerText = "BLESSED: +" + bonus; resImg.src = getRandImg('f');
             actions.innerHTML = `<button onclick="takeReward(${bonus})" style="width:100%; padding:15px; background:green; color:white; border:none; border-radius:5px; font-weight:bold;">RISE</button>`;
         }
         else { 
-            resText.style.color = "red"; 
-            resText.innerText = "INFERNO TRAP: -10";
-            resImg.src = getRandImg('h');
+            resText.style.color = "red"; resText.innerText = "INFERNO TRAP: -10"; resImg.src = getRandImg('h');
             let btns = `<button onclick="takePenalty(10)" style="width:100%; padding:15px; background:#444; color:white; border:none; border-radius:5px; font-weight:bold;">ACCEPT TRAP</button>`;
             if (inventory.passes > 0 && inventory.usedCount < 5) {
                 for (let i=0; i<maxPlayers; i++) if(i !== myRole && !finished[i]) btns += `<button onclick="useSabotage(${i}, 10)" style="background:purple; color:white; margin-top:5px; padding:10px; width:100%; border:none; border-radius:5px; font-weight:bold;">TRAP ${playerNames[i].toUpperCase()}</button>`;
             }
             actions.innerHTML = btns;
-        }
-    }
-
-    // Bot specific handling for results (Host simulates this)
-    async function botTriggerResult(botIdx) {
-        let rand = Math.random() * 100;
-        if (rand < 20) {
-            await animateMove(botIdx, 1);
-            sync(`${playerNames[botIdx]} fell into the VOID!`);
-        } else if (rand < 67) {
-            let bonus = Math.floor(Math.random() * 5) + 5;
-            await animateMove(botIdx, Math.min(100, positions[botIdx] + bonus));
-            sync(`${playerNames[botIdx]} was BLESSED!`);
-        } else {
-            await animateMove(botIdx, Math.max(1, positions[botIdx] - 10));
-            sync(`${playerNames[botIdx]} hit a TRAP!`);
         }
     }
 
@@ -377,7 +354,6 @@
         positions = [1,1,1,1]; turn = 0; finished = [false, false, false, false]; inventory.passes = 0; inventory.usedCount = 0;
         document.getElementById('host-controls').innerHTML = "";
         broadcast({ type: 'restart' });
-        checkBotTurn();
     }
 
     async function handleData(d) {
@@ -389,7 +365,7 @@
         }
         if (d.type === 'sabotage') { await animateMove(d.to, d.newPos); if(d.to === myRole) playSound('noob'); updateUI(); }
         if (d.type === 'sync') { if(!isMoving) positions = d.pos; turn = d.turn; document.getElementById('ritual-log').innerText = d.msg; updateUI(); checkEndState(); checkBotTurn(); }
-        if (d.type === 'init') { myRole = d.role; maxPlayers = d.max; positions = d.pos; turn = d.turn; finished = d.fin; playerNames = d.names; botRoles = d.bots || []; document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
+        if (d.type === 'init') { myRole = d.role; maxPlayers = d.max; positions = d.pos; turn = d.turn; finished = d.fin; playerNames = d.names; document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
         if (d.type === 'finish') { finished[d.winner] = true; updateUI(); handleJudgment(d.winner); }
         if (d.type === 'restart') { positions = [1,1,1,1]; turn = 0; finished = [false, false, false, false]; inventory.passes = 0; inventory.usedCount = 0; document.getElementById('host-controls').innerHTML = ""; updateUI(); checkBotTurn(); }
     }
@@ -400,7 +376,7 @@
 
     function checkBotTurn() {
         if (isHost && botRoles.includes(turn) && !finished[turn] && !isMoving) {
-            setTimeout(() => { processAction(turn); }, 1500);
+            setTimeout(() => { processTurnAction(turn); }, 1500);
         }
     }
 
@@ -416,7 +392,7 @@
         playerNames.slice(0, maxPlayers).forEach((name, i) => {
             const div = document.createElement('div');
             div.className = `soul-id ${i === myRole ? 'my-identity' : ''} ${i === turn ? 'active-turn' : ''}`;
-            div.innerHTML = `<span class="soul-dot p${i}"></span> ${finished[i] ? '🏁 ' : ''}${name}${botRoles.includes(i)?' (BOT)':''}`;
+            div.innerHTML = `<span class="soul-dot p${i}"></span> ${finished[i] ? '🏁 ' : ''}${name}`;
             sBar.appendChild(div);
         });
         document.querySelectorAll('.player').forEach(p => p.remove());
@@ -424,19 +400,13 @@
             const cell = document.getElementById('cell-' + pos);
             if (cell) { const dot = document.createElement('div'); dot.className = `player p${i}`; cell.appendChild(dot); }
         });
+        checkBotTurn();
     }
 
     function copyL() { const i = document.getElementById('lInp'); i.select(); navigator.clipboard.writeText(i.value); alert("Link Copied!"); }
     function sendEmoji(e) { const m = { type: 'chat', sender: playerNames[myRole], text: e, fromPeer: peer.id }; if (isHost) broadcast(m); else hostConn.send(m); }
     function closeOverlaySync(m) { document.getElementById('overlay').style.display="none"; sync(m); }
-    function sendInit() { 
-        guestConns.forEach((c, i) => { 
-            if(c) c.send({ type: 'init', role: i+1, max: maxPlayers, pos: positions, turn: turn, fin: finished, names: playerNames, bots: botRoles }) 
-        }); 
-        document.getElementById('setup-screen').style.display = 'none'; 
-        updateUI();
-        checkBotTurn();
-    }
+    function sendInit() { guestConns.forEach((c, i) => { if(c) c.send({ type: 'init', role: i+1, max: maxPlayers, pos: positions, turn: turn, fin: finished, names: playerNames }) }); document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
 </script>
 </body>
 </html>
