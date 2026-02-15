@@ -1,16 +1,17 @@
 {
   "name": "100 Gates: Infernal Edition",
   "short_name": "100 Gates",
-  "start_url": "./index.html",
+  "description": "A hellish multiplayer board game.",
+  "start_url": "index.html",
   "display": "standalone",
   "background_color": "#050505",
   "theme_color": "#bc0000",
   "icons": [
     {
-      "src": "h1.jpg",
+      "src": "https://img.icons8.com/emoji/512/000000/fire-emoji.png",
       "sizes": "512x512",
-      "type": "image/jpeg",
-      "purpose": "any"
+      "type": "image/png",
+      "purpose": "any maskable"
     }
   ]
 }
