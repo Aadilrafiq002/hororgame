@@ -9,23 +9,19 @@
         :root { --bg: #050505; --accent: #bc0000; --panel: #1a1a1a; --fire: #ff4500; }
         body { background: var(--bg); color: #cfcfcf; font-family: 'Courier New', monospace; margin: 0; text-align: center; overflow-x: hidden; touch-action: manipulation; }
         
-        /* Auth */
         #auth-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         #auth-screen input { padding: 12px; margin: 5px; width: 80%; max-width: 300px; background: #111; border: 1px solid #444; color: white; border-radius: 5px; }
 
-        /* Soul Identity Bar */
         #soul-bar { display: flex; justify-content: center; gap: 10px; background: #111; padding: 8px; border-bottom: 1px solid #333; font-size: 11px; flex-wrap: wrap; }
         .soul-id { display: flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 15px; background: #1a1a1a; border: 1px solid #333; }
         .soul-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
         .my-identity { border-color: var(--accent); background: #2a0000; }
         .active-turn { box-shadow: 0 0 10px gold; border-color: gold; color: gold; }
 
-        /* Board & Fire Effect */
         #game-container { display: grid; grid-template-columns: repeat(10, 1fr); width: 95vw; max-width: 400px; aspect-ratio: 1/1; margin: 5px auto; border: 5px solid #333; background: #000; }
         .cell { border: 0.1px solid #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 10px; position: relative; background: #080808; color: #444; overflow: hidden; }
         .fire-glow { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle, rgba(255,69,0,0.3) 0%, transparent 70%); }
 
-        /* Dot System */
         .player { width: 16px; height: 16px; border-radius: 50%; position: absolute; border: 2px solid #000; z-index: 10; transition: all 0.2s linear; }
         .p0 { background: #ff3333; box-shadow: 0 0 10px #f00; } 
         .p1 { background: #33aaff; box-shadow: 0 0 10px #0af; } 
@@ -39,7 +35,6 @@
         .btn-active { background: #008000; color: white; }
         .btn-wait { background: #222; color: #555; }
         
-        /* Chat */
         #chat-window { position: fixed; bottom: 0; left: 0; right: 0; background: #111; z-index: 8000; border-top: 2px solid var(--accent); padding-bottom: env(safe-area-inset-bottom); }
         .emoji-grid { display: grid; grid-template-columns: repeat(5, 1fr); max-width: 400px; margin: 0 auto; padding: 6px; gap: 5px; }
         .emoji-grid button { font-size: 22px; padding: 10px; background: #222; border: 1px solid #444; color: white; border-radius: 8px; cursor: pointer; }
@@ -88,10 +83,17 @@
     let playerNames = ["P1", "P2", "P3", "P4"];
     let isMoving = false;
 
+    const jokes = [
+        "Are you a turtle? Because you move so slow!",
+        "Even my grandma reaches 100 faster than you!",
+        "You're not losing, you're just winning in reverse!",
+        "Did you trip on the first gate? Typical noob!",
+        "I've seen snails with more speed than you!"
+    ];
+
     const sounds = { dice: new Audio('dice.mp3'), jump: new Audio('jump.mp3'), noob: new Audio('noob.mp3') };
     function playSound(n) { const s = sounds[n].cloneNode(); s.play().catch(()=>{}); }
 
-    // Board Generation
     const boardEl = document.getElementById('game-container');
     const cells = [];
     for (let i = 0; i < 100; i++) {
@@ -155,12 +157,10 @@
         }); 
     }
 
-    // Step-by-Step Animation Logic
     async function animateMove(playerIdx, targetPos) {
         isMoving = true;
         let current = positions[playerIdx];
         const step = targetPos > current ? 1 : -1;
-        
         while (current !== targetPos) {
             current += step;
             positions[playerIdx] = current;
@@ -175,10 +175,8 @@
         playSound('dice');
         let roll = Math.floor(Math.random() * 6) + 1;
         document.getElementById('dice-box').innerText = "🎲 " + roll;
-        
         let target = Math.min(100, positions[myRole] + roll);
         await animateMove(myRole, target);
-        
         personalRolls++;
         if (positions[myRole] >= 100) { 
             finished[myRole] = true; updateUI();
@@ -187,7 +185,6 @@
             handleJudgment(myRole);
             return; 
         }
-
         if (personalRolls >= 2 || Math.random() < 0.25) { personalRolls = 0; triggerResult(); } 
         else { sync(`${playerNames[myRole]} moved`); }
     }
@@ -198,7 +195,6 @@
         overlay.style.display = "flex";
         let isTrap = Math.random() < 0.60;
         document.getElementById('res-img').src = (isTrap ? 'h' : 'f') + (Math.floor(Math.random()*5)+1) + ".jpg";
-
         if (!isTrap) {
             inventory.passes++;
             document.getElementById('res-text').style.color = "gold";
@@ -248,12 +244,26 @@
     function handleJudgment(winnerIdx) {
         const overlay = document.getElementById('overlay');
         const text = document.getElementById('res-text');
-        document.getElementById('res-img').src = "https://img.icons8.com/emoji/96/000000/trophy-emoji.png";
+        const actions = document.getElementById('event-actions');
         overlay.style.display = "flex";
-        if (myRole === winnerIdx) { text.innerHTML = `<span style="color:gold;">🏆 YOU ESCAPED! 🏆</span>`; } 
-        else { text.innerHTML = `<span style="color:red;">💀 ${playerNames[winnerIdx]} ESCAPED! 💀</span>`; }
-        document.getElementById('event-actions').innerHTML = `<button onclick="document.getElementById('overlay').style.display='none'" style="width:100%; padding:10px; background:#222; color:white;">SPECTATE</button>`;
-        checkEndState();
+        
+        if (myRole === winnerIdx) { 
+            document.getElementById('res-img').src = "https://img.icons8.com/emoji/96/000000/trophy-emoji.png";
+            text.innerHTML = `<span style="color:gold;">🏆 YOU ESCAPED! 🏆</span><br><small>Noobs stay behind!</small>`; 
+        } else { 
+            playSound('noob');
+            document.getElementById('res-img').src = "https://img.icons8.com/emoji/96/000000/skull-emoji.png";
+            const joke = jokes[Math.floor(Math.random() * jokes.length)];
+            text.innerHTML = `<span style="color:red;">💀 YOU LOST! 💀</span><br><small>${playerNames[winnerIdx]} finished.</small><br><p style="color:white; font-style:italic;">"${joke}"</p>`; 
+        }
+
+        actions.innerHTML = `<p style="color:#666; font-size:10px;">CLOSING IN 4 SECONDS...</p>`;
+        
+        // Auto-close overlay after 4 seconds
+        setTimeout(() => {
+            overlay.style.display = 'none';
+            checkEndState();
+        }, 4000);
     }
 
     function restartGame() {
@@ -273,14 +283,7 @@
             f.style.display = "flex"; setTimeout(() => f.style.display = "none", 1500);
         }
         if (d.type === 'sabotage') { await animateMove(d.to, d.newPos); if(d.to === myRole) playSound('noob'); updateUI(); }
-        if (d.type === 'sync') { 
-            // Only update positions if we aren't currently animating locally
-            if(!isMoving) positions = d.pos; 
-            turn = d.turn; 
-            document.getElementById('ritual-log').innerText = d.msg; 
-            updateUI(); 
-            checkEndState(); 
-        }
+        if (d.type === 'sync') { if(!isMoving) positions = d.pos; turn = d.turn; document.getElementById('ritual-log').innerText = d.msg; updateUI(); checkEndState(); }
         if (d.type === 'init') { myRole = d.role; maxPlayers = d.max; positions = d.pos; turn = d.turn; finished = d.fin; playerNames = d.names; document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
         if (d.type === 'finish') { finished[d.winner] = true; updateUI(); handleJudgment(d.winner); }
         if (d.type === 'restart') { positions = [1,1,1,1]; turn = 0; finished = [false, false, false, false]; inventory.passes = 0; document.getElementById('overlay').style.display='none'; document.getElementById('host-controls').innerHTML = ""; updateUI(); }
@@ -304,7 +307,6 @@
         else btn.innerText = active ? "ROLL DICE" : (isMoving ? "MOVING..." : playerNames[turn].toUpperCase() + "'S TURN");
         btn.className = active ? "btn-active" : "btn-wait";
         document.getElementById('inv-display').innerText = `CARDS: ${inventory.passes}`;
-        
         const sBar = document.getElementById('soul-bar');
         sBar.innerHTML = "";
         playerNames.slice(0, maxPlayers).forEach((name, i) => {
@@ -313,7 +315,6 @@
             div.innerHTML = `<span class="soul-dot p${i}"></span> ${finished[i] ? '🏁 ' : ''}${name}`;
             sBar.appendChild(div);
         });
-
         document.querySelectorAll('.player').forEach(p => p.remove());
         positions.slice(0, maxPlayers).forEach((pos, i) => {
             const cell = document.getElementById('cell-' + pos);
@@ -327,7 +328,7 @@
 
     function sendEmoji(e) { const m = { type: 'chat', sender: playerNames[myRole], text: e, fromPeer: peer.id }; if (isHost) broadcast(m); else hostConn.send(m); }
     function copyL() { const i = document.getElementById('lInp'); i.select(); navigator.clipboard.writeText(i.value); alert("Link Copied!"); }
-    function closeOverlaySync(m) { document.getElementById('overlay').style.display="none"; sync(m); }
+    function closeOverlaySync(m) { document.getElementById('overlay').style.display=\"none\"; sync(m); }
     function sendInit() { guestConns.forEach((c, i) => { if(c) c.send({ type: 'init', role: i+1, max: maxPlayers, pos: positions, turn: turn, fin: finished, names: playerNames }) }); document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
 </script>
 </body>
