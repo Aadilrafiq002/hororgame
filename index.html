@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>100 GATES: INFERNAL SOULS</title>
+    <title>100 GATES: INFERNAL EDITION</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg: #050505; --accent: #bc0000; --panel: #1a1a1a; --fire: #ff4500; }
@@ -13,38 +13,37 @@
         #auth-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         #auth-screen input { padding: 12px; margin: 5px; width: 80%; max-width: 300px; background: #111; border: 1px solid #444; color: white; border-radius: 5px; }
 
-        /* Soul Identity Panel */
-        #soul-panel { display: flex; justify-content: space-around; background: #111; padding: 5px; font-size: 11px; border-bottom: 1px solid #333; }
-        .soul-tag { display: flex; align-items: center; gap: 4px; padding: 2px 6px; border-radius: 4px; }
-        .my-tag { border: 1px solid var(--accent); background: #200; }
-        .dot-ref { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        /* Soul Identity Bar */
+        #soul-bar { display: flex; justify-content: center; gap: 10px; background: #111; padding: 8px; border-bottom: 1px solid #333; font-size: 11px; flex-wrap: wrap; }
+        .soul-id { display: flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 15px; background: #1a1a1a; border: 1px solid #333; }
+        .soul-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .my-identity { border-color: var(--accent); background: #2a0000; }
 
         /* Board & Fire Effect */
         #game-container { display: grid; grid-template-columns: repeat(10, 1fr); width: 95vw; max-width: 400px; aspect-ratio: 1/1; margin: 5px auto; border: 5px solid #333; background: #000; }
         .cell { border: 0.1px solid #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 10px; position: relative; background: #080808; color: #444; overflow: hidden; }
         .fire-glow { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle, rgba(255,69,0,0.3) 0%, transparent 70%); }
 
-        /* Symbol System */
-        .player { width: 18px; height: 18px; border-radius: 50%; position: absolute; border: 2px solid #000; z-index: 10; transform: none !important; transition: none !important; }
+        /* Dot System */
+        .player { width: 16px; height: 16px; border-radius: 50%; position: absolute; border: 2px solid #000; z-index: 10; }
         .p0 { background: #ff3333; box-shadow: 0 0 10px #f00; } 
         .p1 { background: #33aaff; box-shadow: 0 0 10px #0af; } 
         .p2 { background: #33ff77; box-shadow: 0 0 10px #0f7; } 
         .p3 { background: #f0ff33; box-shadow: 0 0 10px #ff0; }
         
-        #ritual-log { background: #000; color: #888; padding: 8px; font-size: 12px; height: 35px; border-bottom: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; }
-        .panel { background: var(--panel); padding: 10px; border-radius: 10px; width: 90%; max-width: 400px; border: 1px solid var(--accent); margin: 5px auto; }
-        #roll-btn { padding: 15px; width: 100%; border-radius: 5px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; }
+        #ritual-log { background: #000; color: #888; padding: 5px; font-size: 12px; height: 25px; display: flex; align-items: center; justify-content: center; border-bottom: 1px solid #222;}
+
+        .panel { background: var(--panel); padding: 8px; border-radius: 10px; width: 90%; max-width: 400px; border: 1px solid var(--accent); margin: 5px auto; }
+        #roll-btn { padding: 12px; width: 100%; border-radius: 5px; font-size: 16px; font-weight: bold; cursor: pointer; border: none; }
         .btn-active { background: #008000; color: white; }
         .btn-wait { background: #222; color: #555; }
         
-        #chat-window { position: fixed; bottom: 0; left: 0; right: 0; background: #111; z-index: 8000; border-top: 3px solid var(--accent); padding-bottom: env(safe-area-inset-bottom); }
-        .emoji-grid { display: grid; grid-template-columns: repeat(5, 1fr); max-width: 500px; margin: 0 auto; padding: 10px; gap: 8px; }
-        /* Optimized Emoji Size */
-        .emoji-grid button { font-size: 28px; padding: 12px; background: #222; border: 1px solid #444; color: white; border-radius: 8px; cursor: pointer; }
+        /* Compact Emoji Grid */
+        #chat-window { position: fixed; bottom: 0; left: 0; right: 0; background: #111; z-index: 8000; border-top: 2px solid var(--accent); padding-bottom: env(safe-area-inset-bottom); }
+        .emoji-grid { display: grid; grid-template-columns: repeat(5, 1fr); max-width: 400px; margin: 0 auto; padding: 6px; gap: 5px; }
+        .emoji-grid button { font-size: 22px; padding: 10px; background: #222; border: 1px solid #444; color: white; border-radius: 8px; cursor: pointer; }
 
         #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9000; padding: 20px; }
-        .event-card { width: 95%; max-width: 380px; text-align: center; background: #000; border: 2px solid var(--accent); padding: 15px; border-radius: 10px; }
-        #res-img { width: 100%; max-height: 35vh; object-fit: contain; margin-bottom: 15px; display: block; }
         #emoji-flash { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9500; pointer-events: none; }
     </style>
 </head>
@@ -57,21 +56,21 @@
         <button onclick="handleAuth()" style="width:80%; padding:15px; background:var(--accent); color:white; border:none; font-weight:bold;">ENTER THE VOID</button>
     </div>
 
-    <div id="emoji-flash"><p id="flash-content" style="font-size:100px;"></p><p id="flash-user" style="color:red; font-size: 20px;"></p></div>
+    <div id="soul-bar"></div>
+
+    <div id="emoji-flash"><p id="flash-content" style="font-size: 80px;"></p><p id="flash-user" style="color:red; font-size: 20px;"></p></div>
 
     <div id="setup-screen" style="position:fixed; inset:0; background:#000; z-index:8500; display:none; flex-direction:column; justify-content:center; align-items:center;">
         <div id="ui-box" class="panel"></div>
     </div>
 
-    <div id="soul-panel"></div>
-
     <div id="ritual-log">Summoning spirits...</div>
-    <div id="inv-display" style="color:gold; font-weight:bold; margin-top:5px;">SABOTAGE CARDS: 0</div>
     <div id="game-container"></div>
 
-    <div class="panel" style="margin-bottom: 160px;">
-        <div id="dice-box" style="font-size: 24px;">🎲</div>
+    <div class="panel" style="margin-bottom: 130px;">
+        <div id="dice-box" style="font-size: 20px; margin-bottom: 5px;">🎲</div>
         <button id="roll-btn" class="btn-wait" onclick="playTurn()" disabled>WAITING...</button>
+        <div id="inv-display" style="color:gold; font-size: 12px; font-weight:bold; margin-top:5px;">CARDS: 0</div>
     </div>
 
     <div id="chat-window">
@@ -85,8 +84,8 @@
     </div>
 
     <div id="overlay">
-        <div class="event-card">
-            <img id="res-img" src="">
+        <div class="panel" style="text-align:center;">
+            <img id="res-img" src="" style="width:100%; max-height:30vh; object-fit:contain;">
             <h2 id="res-text"></h2>
             <div id="event-actions"></div>
         </div>
@@ -206,17 +205,37 @@
             inventory.passes++;
             document.getElementById('res-text').style.color = "gold";
             document.getElementById('res-text').innerText = "SABOTAGE CARD!";
-            actions.innerHTML = `<button onclick="closeOverlaySync('Found card')" style="width:100%; padding:18px; background:green; color:white; font-weight:bold; border:none; border-radius:10px;">COLLECT</button>`;
+            actions.innerHTML = `<button onclick="closeOverlaySync('Found card')" style="width:100%; padding:15px; background:green; color:white; border:none; border-radius:5px;">COLLECT</button>`;
         } else {
             playSound('jump');
             if (isVoid) {
+                document.getElementById('res-text').style.color = "red";
                 document.getElementById('res-text').innerText = "THE VOID!";
-                actions.innerHTML = `<button onclick="takeVoid()" style="width:100%; padding:18px; background:red; color:white; border:none; border-radius:10px; font-weight:bold;">ACCEPT DEFEAT</button>`;
+                let btns = `<button onclick="takeVoid()" style="width:100%; padding:15px; background:red; color:white; border:none; border-radius:5px;">START OVER</button>`;
+                if (inventory.passes > 0) {
+                    for (let i=0; i<maxPlayers; i++) if(i !== myRole && !finished[i]) btns += `<button onclick="useSabotage(${i}, true)" style="background:black; color:red; margin-top:5px; padding:10px; width:100%; border:1px solid red; border-radius:5px;">VOID ${playerNames[i]}</button>`;
+                }
+                actions.innerHTML = btns;
             } else {
-                document.getElementById('res-text').innerText = "TRAP: -10 GATES";
-                actions.innerHTML = `<button onclick="takeTrap()" style="width:100%; padding:18px; background:#444; color:white; border:none; border-radius:10px; font-weight:bold;">ACCEPT</button>`;
+                document.getElementById('res-text').style.color = "white";
+                document.getElementById('res-text').innerText = "TRAP: -10";
+                let btns = `<button onclick="takeTrap()" style="width:100%; padding:15px; background:#444; color:white; border:none; border-radius:5px;">ACCEPT</button>`;
+                if (inventory.passes > 0) {
+                    for (let i=0; i<maxPlayers; i++) if(i !== myRole && !finished[i]) btns += `<button onclick="useSabotage(${i}, false)" style="background:purple; color:white; margin-top:5px; padding:10px; width:100%; border:none; border-radius:5px;">TRAP ${playerNames[i]}</button>`;
+                }
+                actions.innerHTML = btns;
             }
         }
+    }
+
+    function useSabotage(target, isVoid) {
+        inventory.passes--;
+        document.getElementById('overlay').style.display = "none";
+        let newPos = isVoid ? 1 : Math.max(1, positions[target]-10);
+        positions[target] = newPos;
+        const d = { type: isVoid ? 'sabotage_void' : 'sabotage', to: target, newPos: newPos, fromPeer: peer.id };
+        if (isHost) broadcast(d); else hostConn.send(d);
+        sync(`Sabotaged ${playerNames[target]}!`);
     }
 
     function takeVoid() { positions[myRole] = 1; document.getElementById('overlay').style.display = "none"; sync(`Exiled to start!`); }
@@ -231,6 +250,11 @@
             f.style.display = "flex";
             setTimeout(() => f.style.display = "none", 1500);
         }
+        if (d.type === 'sabotage_void' || d.type === 'sabotage') {
+            positions[d.to] = d.newPos;
+            if(d.to === myRole) playSound('noob');
+            updateUI();
+        }
         if (d.type === 'sync') { positions = d.pos; turn = d.turn; document.getElementById('ritual-log').innerText = d.msg; updateUI(); }
         if (d.type === 'init') { myRole = d.role; maxPlayers = d.max; positions = d.pos; turn = d.turn; finished = d.fin; playerNames = d.names; document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
         if (d.type === 'finish') { finished[d.winner] = true; updateUI(); alert(playerNames[d.winner] + " ASCENDED!"); }
@@ -243,18 +267,18 @@
     function updateUI() {
         const active = (turn === myRole && !finished[myRole]);
         document.getElementById('roll-btn').disabled = !active;
-        document.getElementById('roll-btn').innerText = active ? "RELEASE POWER" : playerNames[turn].toUpperCase() + "'S RITUAL";
+        document.getElementById('roll-btn').innerText = active ? "RELEASE POWER" : playerNames[turn].toUpperCase() + "'S TURN";
         document.getElementById('roll-btn').className = active ? "btn-active" : "btn-wait";
         document.getElementById('inv-display').innerText = `CARDS: ${inventory.passes}`;
         
-        // Update Soul Panel (Who is who)
-        const sPanel = document.getElementById('soul-panel');
-        sPanel.innerHTML = "";
+        // Update Identity Bar
+        const sBar = document.getElementById('soul-bar');
+        sBar.innerHTML = "";
         playerNames.slice(0, maxPlayers).forEach((name, i) => {
-            const span = document.createElement('div');
-            span.className = `soul-tag ${i === myRole ? 'my-tag' : ''}`;
-            span.innerHTML = `<span class="dot-ref p${i}"></span> <b>${name}</b>`;
-            sPanel.appendChild(span);
+            const div = document.createElement('div');
+            div.className = `soul-id ${i === myRole ? 'my-identity' : ''}`;
+            div.innerHTML = `<span class="soul-dot p${i}"></span> ${name}`;
+            sBar.appendChild(div);
         });
 
         // Instant Movement
