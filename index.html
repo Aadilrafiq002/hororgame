@@ -254,88 +254,65 @@
     }
 
     // BOT TURN LOGIC
+  // FIXED BOT TURN LOGIC
     async function botTurn() {
-        if (finished[1] || isMoving) return;
-        await new Promise(r => setTimeout(r, 1200));
+        if (finished[1] || isMoving || turn !== 1) return; // Added turn check
+        
+        isMoving = true; // Block other actions immediately
+        await new Promise(r => setTimeout(r, 1500)); // Give player time to breathe
+        
         let roll = Math.floor(Math.random() * 6) + 1;
         document.getElementById('dice-box').innerText = "🎲 " + roll;
-        let target = Math.min(100, positions[1] + roll);
-        await animateMove(1, target);
+        playSound('dice');
         
+        let target = Math.min(100, positions[1] + roll);
+        
+        // Move the bot step by step
+        let current = positions[1];
+        while (current !== target) {
+            current += 1;
+            positions[1] = current;
+            refreshBoardOnly(); // Custom function to just move dots without triggering logic
+            await new Promise(r => setTimeout(r, 150));
+        }
+
         if (positions[1] >= 100) {
-            finished[1] = true; updateUI();
+            finished[1] = true;
+            isMoving = false;
             handleJudgment(1);
             return;
         }
 
-        // Bot probability logic
+        // Bot Trap/Blessing Logic
         let botRand = Math.random() * 100;
+        let msg = "Bot finished turn";
+        
         if (botRand < 15) {
-            await animateMove(1, Math.max(1, positions[1] - 10));
-            sync("BOT hit a trap!");
+            let oldPos = positions[1];
+            positions[1] = Math.max(1, oldPos - 10);
+            msg = "BOT hit a trap!";
         } else if (botRand < 30) {
-            await animateMove(1, Math.min(100, positions[1] + 5));
-            sync("BOT was blessed!");
-        } else {
-            sync("Bot finished turn");
+            let oldPos = positions[1];
+            positions[1] = Math.min(100, oldPos + 5);
+            msg = "BOT was blessed!";
         }
+
+        isMoving = false; // Unblock
+        sync(msg); // This will pass the turn back to Player 0
     }
 
-    function triggerResult() {
-    const overlay = document.getElementById('overlay');
-    const actions = document.getElementById('event-actions');
-    const resText = document.getElementById('res-text');
-    const resImg = document.getElementById('res-img');
-    overlay.style.display = "flex";
-    
-    let rand = Math.random() * 100; 
-    const getRandImg = (type) => type + (Math.floor(Math.random() * 5) + 1) + ".jpg";
-
-    if (rand < 20) { 
-        playSound('jump');
-        resText.style.color = "#ff00ff"; 
-        resText.innerText = "THE VOID: BACK TO GATE 1";
-        resImg.src = getRandImg('h'); 
-        let btns = `<button onclick="takeVoid()" style="width:100%; padding:15px; background:black; color:white; border:1px solid #ff00ff; border-radius:5px; font-weight:bold;">FALL ALONE</button>`;
-        if (inventory.passes > 0 && inventory.usedCount < 5) {
-            for (let i=0; i<maxPlayers; i++) {
-                if(i !== myRole && !finished[i]) {
-                    btns += `<button onclick="useVoidSabotage(${i})" style="background:#500050; color:white; margin-top:5px; padding:10px; width:100%; border:none; border-radius:5px;">BANISH ${playerNames[i].toUpperCase()}</button>`;
-                }
+    // Helper to move dots without re-triggering the Bot Logic Loop
+    function refreshBoardOnly() {
+        document.querySelectorAll('.player').forEach(p => p.remove());
+        positions.slice(0, maxPlayers).forEach((pos, i) => {
+            const cell = document.getElementById('cell-' + pos);
+            if (cell) { 
+                const dot = document.createElement('div'); 
+                dot.className = `player p${i}`; 
+                cell.appendChild(dot); 
             }
-        }
-        actions.innerHTML = btns;
-    } 
-    else if (rand < 35) { 
-        inventory.passes++;
-        resText.style.color = "gold"; 
-        resText.innerText = "SABOTAGE CARD FOUND!";
-        resImg.src = getRandImg('f'); 
-        actions.innerHTML = `<button onclick="closeOverlaySync('Found card')" style="width:100%; padding:15px; background:green; color:white; border:none; border-radius:5px; font-weight:bold;">COLLECT</button>`;
+        });
     }
-    else if (rand < 67) { 
-        let bonus = Math.floor(Math.random() * 5) + 5; 
-        resText.style.color = "#00ff00"; 
-        resText.innerText = "BLESSED: +" + bonus;
-        resImg.src = getRandImg('f'); 
-        actions.innerHTML = `<button onclick="takeReward(${bonus})" style="width:100%; padding:15px; background:green; color:white; border:none; border-radius:5px; font-weight:bold;">RISE</button>`;
-    }
-    else { 
-        resText.style.color = "red"; 
-        resText.innerText = "INFERNO TRAP: -10";
-        resImg.src = getRandImg('h'); 
-        let btns = `<button onclick="takePenalty(10)" style="width:100%; padding:15px; background:#444; color:white; border:none; border-radius:5px; font-weight:bold;">ACCEPT TRAP</button>`;
-        if (inventory.passes > 0 && inventory.usedCount < 5) {
-            for (let i=0; i<maxPlayers; i++) {
-                if(i !== myRole && !finished[i]) {
-                    btns += `<button onclick="useSabotage(${i}, 10)" style="background:purple; color:white; margin-top:5px; padding:10px; width:100%; border:none; border-radius:5px; font-weight:bold;">TRAP ${playerNames[i].toUpperCase()}</button>`;
-                }
-            }
-        }
-        actions.innerHTML = btns;
-    }
-    }
-
     async function useSabotage(target, p) {
         inventory.passes--; inventory.usedCount++;
         document.getElementById('overlay').style.display = "none";
@@ -428,30 +405,59 @@
         if(rem.length <= 1) return; 
         do { turn = (turn + 1) % maxPlayers; } while (finished[turn]); 
     }
+// old one 
+    // function updateUI() {
+    //     const active = (turn === myRole && !finished[myRole] && !isMoving);
+    //     const btn = document.getElementById('roll-btn');
+    //     btn.disabled = !active;
+    //     if(finished[myRole]) btn.innerText = "SPECTATING...";
+    //     else btn.innerText = active ? "ROLL DICE" : (isMoving ? "MOVING..." : playerNames[turn].toUpperCase() + "'S TURN");
+    //     btn.className = active ? "btn-active" : "btn-wait";
+    //     document.getElementById('inv-display').innerText = `CARDS: ${inventory.passes} (${inventory.usedCount}/5 USED)`;
+    //     const sBar = document.getElementById('soul-bar'); sBar.innerHTML = "";
+    //     playerNames.slice(0, maxPlayers).forEach((name, i) => {
+    //         const div = document.createElement('div');
+    //         div.className = `soul-id ${i === myRole ? 'my-identity' : ''} ${i === turn ? 'active-turn' : ''}`;
+    //         div.innerHTML = `<span class="soul-dot p${i}"></span> ${finished[i] ? '🏁 ' : ''}${name}`;
+    //         sBar.appendChild(div);
+    //     });
+    //     document.querySelectorAll('.player').forEach(p => p.remove());
+    //     positions.slice(0, maxPlayers).forEach((pos, i) => {
+    //         const cell = document.getElementById('cell-' + pos);
+    //         if (cell) { const dot = document.createElement('div'); dot.className = `player p${i}`; cell.appendChild(dot); }
+    //     });
 
+    //     // Trigger Bot Turn if VS CPU
+    //     if (isVsCPU && turn === 1 && !finished[1] && !isMoving) botTurn();
+    // }
+
+    // new one 
     function updateUI() {
         const active = (turn === myRole && !finished[myRole] && !isMoving);
         const btn = document.getElementById('roll-btn');
         btn.disabled = !active;
+        
         if(finished[myRole]) btn.innerText = "SPECTATING...";
         else btn.innerText = active ? "ROLL DICE" : (isMoving ? "MOVING..." : playerNames[turn].toUpperCase() + "'S TURN");
+        
         btn.className = active ? "btn-active" : "btn-wait";
         document.getElementById('inv-display').innerText = `CARDS: ${inventory.passes} (${inventory.usedCount}/5 USED)`;
-        const sBar = document.getElementById('soul-bar'); sBar.innerHTML = "";
+        
+        const sBar = document.getElementById('soul-bar'); 
+        sBar.innerHTML = "";
         playerNames.slice(0, maxPlayers).forEach((name, i) => {
             const div = document.createElement('div');
             div.className = `soul-id ${i === myRole ? 'my-identity' : ''} ${i === turn ? 'active-turn' : ''}`;
             div.innerHTML = `<span class="soul-dot p${i}"></span> ${finished[i] ? '🏁 ' : ''}${name}`;
             sBar.appendChild(div);
         });
-        document.querySelectorAll('.player').forEach(p => p.remove());
-        positions.slice(0, maxPlayers).forEach((pos, i) => {
-            const cell = document.getElementById('cell-' + pos);
-            if (cell) { const dot = document.createElement('div'); dot.className = `player p${i}`; cell.appendChild(dot); }
-        });
 
-        // Trigger Bot Turn if VS CPU
-        if (isVsCPU && turn === 1 && !finished[1] && !isMoving) botTurn();
+        refreshBoardOnly(); // Use the helper here
+
+        // ONLY trigger bot if it's the bot's turn AND it's not already moving
+        if (isVsCPU && turn === 1 && !finished[1] && !isMoving) {
+            botTurn();
+        }
     }
 
     function copyL() { const i = document.getElementById('lInp'); i.select(); navigator.clipboard.writeText(i.value); alert("Link Copied!"); }
