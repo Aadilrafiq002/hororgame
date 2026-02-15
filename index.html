@@ -70,6 +70,8 @@
         <button onclick="handleAuth()" style="width:80%; padding:15px; background:var(--accent); color:white; border:none; font-weight:bold; margin-bottom:10px;">ENTER THE VOID</button>
         <button onclick="startBotMode()" style="width:80%; padding:15px; background:#333; color:white; border:1px solid #555; font-weight:bold;">PLAY VS COMPUTER</button>
         <button onclick="showLocalSetup()" style="width:80%; padding:15px; background:#333; color:white; border:1px solid #555; font-weight:bold;">LOCAL PASS & PLAY</button>
+
+        <button id="install-btn" style="display:none; width:80%; padding:15px; background:gold; color:black; font-weight:bold; margin-top:10px;">DOWNLOAD APP</button>
         <!-- <button onclick="showLocalSetup()" style="background: #444; margin-top: 10px;">LOCAL PASS & PLAY</button> -->
     </div>
     <div id="soul-bar"></div>
@@ -751,8 +753,29 @@ function handleHostDeparture() {
         .catch(err => console.log('Worker Failed', err));
     });
   }
+        let deferredPrompt;
+const installBtn = document.getElementById('install-btn');
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // Show the button because the PWA is ready to be installed
+  installBtn.style.display = 'block';
+});
+
+installBtn.addEventListener('click', async () => {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    if (outcome === 'accepted') {
+      installBtn.style.display = 'none';
+    }
+    deferredPrompt = null;
+  }
+});
 </script>
 </body>
 </html>
+
 
 
