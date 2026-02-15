@@ -44,8 +44,6 @@
 
         #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9000; padding: 20px; }
         #emoji-flash { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9500; pointer-events: none; }
-        
-        /* New Menu Styles */
         .menu-btn { width: 80%; padding: 15px; margin: 5px; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; color: white; }
     </style>
 </head>
@@ -116,8 +114,9 @@
     ];
 
     const sounds = { dice: new Audio('dice.mp3'), jump: new Audio('jump.mp3'), noob: new Audio('noob.mp3') };
-    function playSound(n) { const s = sounds[n].cloneNode(); s.play().catch(()=>{}); }
+    function playSound(n) { const s = sounds[n]?.cloneNode(); s?.play().catch(()=>{}); }
 
+    // --- INITIALIZATION ---
     function initPeer(id = null) {
         if (peer) peer.destroy();
         peer = id ? new Peer(id) : new Peer();
@@ -128,8 +127,6 @@
         peer.on('disconnected', () => { document.getElementById('conn-status').className = 'offline'; peer.reconnect(); });
         if (isHost) setupHostListeners();
     }
-
-    setInterval(() => { if (peer && peer.disconnected && !peer.destroyed) peer.reconnect(); }, 3000);
 
     const boardEl = document.getElementById('game-container');
     const cells = [];
@@ -148,6 +145,7 @@
     }
     flickerFire();
 
+    // --- AUTH & LOBBY ---
     function handleAuth() {
         const name = document.getElementById('user-name').value.trim();
         const pass = document.getElementById('admin-pass').value.trim();
@@ -166,21 +164,14 @@
     }
 
     function startVsCPU() {
-        isVsCPU = true;
-        isHost = true;
-        myRole = 0;
-        maxPlayers = 2;
+        isVsCPU = true; isHost = true; myRole = 0; maxPlayers = 2;
         playerNames[0] = localStorage.getItem('gate_username');
         playerNames[1] = "HELL_BOT";
         document.getElementById('auth-screen').style.display = 'none';
         updateUI();
     }
 
-    function showLobbySettings() {
-        isVsCPU = false;
-        document.getElementById('auth-screen').style.display = 'none';
-        showHostUI();
-    }
+    function showLobbySettings() { isVsCPU = false; document.getElementById('auth-screen').style.display = 'none'; showHostUI(); }
 
     function showHostUI() {
         document.getElementById('setup-screen').style.display = 'flex';
@@ -197,11 +188,206 @@
         document.getElementById('ui-box').innerHTML = `<p>SHARE LINK:</p><input type="text" value="${link}" id="lInp" readonly style="width:100%; padding:8px; background:#000; color:white;"><button onclick="copyL()" style="width:100%; margin-top:10px;">COPY & WHATSAPP</button><button onclick="sendInit()" style="background:green; color:white; width:100%; margin-top:15px; padding:10px; border:none; font-weight:bold;">FORCE START</button>`;
     }
 
+    // --- GAMEPLAY CORE ---
+    async function animateMove(playerIdx, targetPos) {
+        isMoving = true;
+        let current = positions[playerIdx];
+        const step = targetPos > current ? 1 : -1;
+        while (current !== targetPos) {
+            current += step;
+            positions[playerIdx] = current;
+            refreshBoardOnly();
+            await new Promise(r => setTimeout(r, 150)); 
+        }
+        updateUI();
+    }
+
+    // HUMAN TURN
+    async function playTurn() {
+        if(finished[myRole] || isMoving) return;
+        isMoving = true;
+        playSound('dice');
+        let roll = Math.floor(Math.random() * 6) + 1;
+        document.getElementById('dice-box').innerText = "🎲 " + roll;
+        let target = Math.min(100, positions[myRole] + roll);
+        await animateMove(myRole, target);
+        personalRolls++;
+
+        if (positions[myRole] >= 100) { 
+            finished[myRole] = true;
+            isMoving = false;
+            if(!isVsCPU) broadcast({ type: 'finish', winner: myRole });
+            handleJudgment(myRole);
+            return; 
+        }
+
+        if (personalRolls >= 2 || Math.random() < 0.30) {
+            personalRolls = 0;
+            triggerHumanResult(); 
+        } else {
+            isMoving = false;
+            sync(`${playerNames[myRole]} moved`);
+        }
+    }
+
+    // BOT TURN
+    async function botTurn() {
+        if (finished[1] || isMoving || turn !== 1) return;
+        isMoving = true;
+        document.getElementById('ritual-log').innerText = "HELL_BOT is rolling...";
+        await new Promise(r => setTimeout(r, 1200));
+        
+        let roll = Math.floor(Math.random() * 6) + 1;
+        document.getElementById('dice-box').innerText = "🎲 " + roll;
+        playSound('dice');
+        
+        let target = Math.min(100, positions[1] + roll);
+        await animateMove(1, target);
+
+        if (positions[1] >= 100) {
+            finished[1] = true;
+            isMoving = false;
+            handleJudgment(1);
+            return;
+        }
+
+        // Bot processes event immediately without overlay
+        applyBotEvent();
+    }
+
+    async function applyBotEvent() {
+        let rand = Math.random() * 100;
+        let msg = "Bot finished turn";
+        if (rand < 15) {
+            positions[1] = Math.max(1, positions[1] - 10);
+            msg = "BOT hit a trap!";
+        } else if (rand < 30) {
+            positions[1] = Math.min(100, positions[1] + 5);
+            msg = "BOT was blessed!";
+        } else if (rand < 40) {
+            positions[1] = 1;
+            msg = "BOT banised to VOID!";
+        }
+        
+        refreshBoardOnly();
+        await new Promise(r => setTimeout(r, 800));
+        isMoving = false;
+        sync(msg);
+    }
+
+    function triggerHumanResult() {
+        const overlay = document.getElementById('overlay');
+        const text = document.getElementById('res-text');
+        const actions = document.getElementById('event-actions');
+        const img = document.getElementById('res-img');
+        overlay.style.display = "flex";
+        
+        let r = Math.random() * 100;
+        if (r < 15) {
+            img.src = "https://img.icons8.com/emoji/96/000000/cyclone-emoji.png";
+            text.innerHTML = "THE VOID<br><small>Go back to gate 1.</small>";
+            actions.innerHTML = `<button onclick="takeVoid()" style="background:purple; color:white; padding:10px; width:100%; border:none;">ACCEPT FATE</button>`;
+        } else if (r < 40) {
+            inventory.passes++;
+            img.src = "https://img.icons8.com/emoji/96/000000/joker.png";
+            text.innerHTML = "SABOTAGE CARD<br><small>Drag someone back.</small>";
+            let targets = "";
+            playerNames.slice(0, maxPlayers).forEach((name, i) => {
+                if (i !== myRole && !finished[i]) targets += `<button onclick="useSabotage(${i}, 10)" style="background:red; color:white; padding:5px; margin:2px;">DRAG ${name}</button>`;
+            });
+            actions.innerHTML = targets || `<button onclick="closeOverlaySync('Collected Card')">COLLECT</button>`;
+        } else if (r < 70) {
+            img.src = "https://img.icons8.com/emoji/96/000000/fire.png";
+            text.innerHTML = "INFERNO GATES<br><small>Burned back 8 gates.</small>";
+            actions.innerHTML = `<button onclick="takePenalty(8)" style="background:orange; color:white; padding:10px; width:100%; border:none;">BURN</button>`;
+        } else {
+            img.src = "https://img.icons8.com/emoji/96/000000/sparkles.png";
+            text.innerHTML = "DEMONIC BLESSING<br><small>Move forward 6 gates.</small>";
+            actions.innerHTML = `<button onclick="takeReward(6)" style="background:green; color:white; padding:10px; width:100%; border:none;">RISE</button>`;
+        }
+    }
+
+    // --- UTILITIES ---
+    function refreshBoardOnly() {
+        document.querySelectorAll('.player').forEach(p => p.remove());
+        positions.slice(0, maxPlayers).forEach((pos, i) => {
+            const cell = document.getElementById('cell-' + pos);
+            if (cell) {
+                const dot = document.createElement('div');
+                dot.className = `player p${i}`;
+                cell.appendChild(dot);
+            }
+        });
+    }
+
+    function sync(msg) { 
+        nextTurn(); 
+        if(!isVsCPU) {
+            const d = { type: 'sync', pos: positions, turn: turn, msg: msg, fin: finished }; 
+            if (isHost) broadcast(d); else hostConn.send(d); 
+        } else {
+            document.getElementById('ritual-log').innerText = msg;
+        }
+        updateUI(); 
+    }
+    
+    function nextTurn() { 
+        let activePlayers = finished.slice(0, maxPlayers).filter(f => !f).length;
+        if(activePlayers <= 1) return; 
+        do { turn = (turn + 1) % maxPlayers; } while (finished[turn]); 
+    }
+
+    function updateUI() {
+        const active = (turn === myRole && !finished[myRole] && !isMoving);
+        const btn = document.getElementById('roll-btn');
+        btn.disabled = !active;
+        if(finished[myRole]) btn.innerText = "SPECTATING...";
+        else btn.innerText = active ? "ROLL DICE" : (isMoving ? "MOVING..." : playerNames[turn].toUpperCase() + "'S TURN");
+        btn.className = active ? "btn-active" : "btn-wait";
+        
+        document.getElementById('inv-display').innerText = `CARDS: ${inventory.passes} (${inventory.usedCount}/5 USED)`;
+        
+        const sBar = document.getElementById('soul-bar'); sBar.innerHTML = "";
+        playerNames.slice(0, maxPlayers).forEach((name, i) => {
+            const div = document.createElement('div');
+            div.className = `soul-id ${i === myRole ? 'my-identity' : ''} ${i === turn ? 'active-turn' : ''}`;
+            div.innerHTML = `<span class="soul-dot p${i}"></span> ${finished[i] ? '🏁 ' : ''}${name}`;
+            sBar.appendChild(div);
+        });
+
+        refreshBoardOnly();
+        if (isVsCPU && turn === 1 && !finished[1] && !isMoving) botTurn();
+    }
+
+    async function takePenalty(p) { document.getElementById('overlay').style.display = "none"; await animateMove(myRole, Math.max(1, positions[myRole] - p)); isMoving = false; sync(`Burned!`); }
+    async function takeReward(r) { document.getElementById('overlay').style.display = "none"; await animateMove(myRole, Math.min(100, positions[myRole] + r)); isMoving = false; sync(`Blessed!`); }
+    async function takeVoid() { document.getElementById('overlay').style.display = "none"; await animateMove(myRole, 1); isMoving = false; sync(`Banished to Void!`); }
+
+    function handleJudgment(winnerIdx) {
+        const overlay = document.getElementById('overlay');
+        const text = document.getElementById('res-text');
+        overlay.style.display = "flex";
+        if (myRole === winnerIdx) { 
+            document.getElementById('res-img').src = "https://img.icons8.com/emoji/96/000000/trophy-emoji.png";
+            text.innerHTML = `<span style="color:gold;">🏆 ESCAPED! 🏆</span>`; 
+        } else { 
+            playSound('noob');
+            document.getElementById('res-img').src = "https://img.icons8.com/emoji/96/000000/skull-emoji.png";
+            text.innerHTML = `<span style="color:red;">💀 LOST! 💀</span><br><small>${playerNames[winnerIdx]} won.</small>`; 
+        }
+        document.getElementById('event-actions').innerHTML = `<button onclick="location.reload()" style="padding:10px; background:red; color:white; border:none; width:100%;">BACK TO MENU</button>`;
+    }
+
+    // --- NETWORK LISTENERS ---
     function setupHostListeners() {
         peer.on('connection', c => {
             c.on('data', d => {
                 if(d.type === 'join_request') {
-                    if (guestConns.length < maxPlayers - 1) { guestConns.push(c); playerNames[guestConns.length] = d.name; if(guestConns.length === maxPlayers-1) sendInit(); }
+                    if (guestConns.length < maxPlayers - 1) { 
+                        guestConns.push(c); 
+                        playerNames[guestConns.length] = d.name; 
+                        if(guestConns.length === maxPlayers-1) sendInit(); 
+                    }
                 }
                 handleData(d);
             });
@@ -218,161 +404,6 @@
         }); 
     }
 
-    async function animateMove(playerIdx, targetPos) {
-        isMoving = true;
-        let current = positions[playerIdx];
-        const step = targetPos > current ? 1 : -1;
-        while (current !== targetPos) {
-            current += step;
-            positions[playerIdx] = current;
-            updateUI();
-            await new Promise(r => setTimeout(r, 150)); 
-        }
-        isMoving = false;
-        updateUI();
-    }
-
-    async function playTurn() {
-        if(finished[myRole] || isMoving) return;
-        playSound('dice');
-        let roll = Math.floor(Math.random() * 6) + 1;
-        document.getElementById('dice-box').innerText = "🎲 " + roll;
-        let target = Math.min(100, positions[myRole] + roll);
-        await animateMove(myRole, target);
-        personalRolls++;
-        if (positions[myRole] >= 100) { 
-            finished[myRole] = true; updateUI();
-            if(!isVsCPU) {
-                const d = { type: 'finish', winner: myRole };
-                if (isHost) broadcast(d); else hostConn.send(d);
-            }
-            handleJudgment(myRole);
-            return; 
-        }
-        if (personalRolls >= 2 || Math.random() < 0.30) { personalRolls = 0; triggerResult(); } 
-        else { sync(`${playerNames[myRole]} moved`); }
-    }
-
-    // BOT TURN LOGIC
-  // FIXED BOT TURN LOGIC
-    async function botTurn() {
-        if (finished[1] || isMoving || turn !== 1) return; // Added turn check
-        
-        isMoving = true; // Block other actions immediately
-        await new Promise(r => setTimeout(r, 1500)); // Give player time to breathe
-        
-        let roll = Math.floor(Math.random() * 6) + 1;
-        document.getElementById('dice-box').innerText = "🎲 " + roll;
-        playSound('dice');
-        
-        let target = Math.min(100, positions[1] + roll);
-        
-        // Move the bot step by step
-        let current = positions[1];
-        while (current !== target) {
-            current += 1;
-            positions[1] = current;
-            refreshBoardOnly(); // Custom function to just move dots without triggering logic
-            await new Promise(r => setTimeout(r, 150));
-        }
-
-        if (positions[1] >= 100) {
-            finished[1] = true;
-            isMoving = false;
-            handleJudgment(1);
-            return;
-        }
-
-        // Bot Trap/Blessing Logic
-        let botRand = Math.random() * 100;
-        let msg = "Bot finished turn";
-        
-        if (botRand < 15) {
-            let oldPos = positions[1];
-            positions[1] = Math.max(1, oldPos - 10);
-            msg = "BOT hit a trap!";
-        } else if (botRand < 30) {
-            let oldPos = positions[1];
-            positions[1] = Math.min(100, oldPos + 5);
-            msg = "BOT was blessed!";
-        }
-
-        isMoving = false; // Unblock
-        sync(msg); // This will pass the turn back to Player 0
-    }
-
-    // Helper to move dots without re-triggering the Bot Logic Loop
-    function refreshBoardOnly() {
-        document.querySelectorAll('.player').forEach(p => p.remove());
-        positions.slice(0, maxPlayers).forEach((pos, i) => {
-            const cell = document.getElementById('cell-' + pos);
-            if (cell) { 
-                const dot = document.createElement('div'); 
-                dot.className = `player p${i}`; 
-                cell.appendChild(dot); 
-            }
-        });
-    }
-    async function useSabotage(target, p) {
-        inventory.passes--; inventory.usedCount++;
-        document.getElementById('overlay').style.display = "none";
-        let newPos = Math.max(1, positions[target] - p);
-        if(!isVsCPU) {
-            const d = { type: 'sabotage', to: target, newPos: newPos, fromPeer: peer.id };
-            if (isHost) broadcast(d); else hostConn.send(d);
-        } else {
-            await animateMove(target, newPos);
-        }
-        sync(`Sabotaged ${playerNames[target]}!`);
-    }
-
-    async function useVoidSabotage(target) {
-        inventory.passes--; inventory.usedCount++;
-        document.getElementById('overlay').style.display = "none";
-        let newPos = 1; 
-        if(!isVsCPU) {
-            const d = { type: 'sabotage', to: target, newPos: newPos, fromPeer: peer.id };
-            if (isHost) broadcast(d); else hostConn.send(d);
-        } else {
-            await animateMove(target, newPos);
-        }
-        sync(`BANISHED ${playerNames[target]} TO VOID!`);
-    }
-
-    async function takePenalty(p) { document.getElementById('overlay').style.display = "none"; await animateMove(myRole, Math.max(1, positions[myRole] - p)); sync(`Burned!`); }
-    async function takeReward(r) { document.getElementById('overlay').style.display = "none"; await animateMove(myRole, Math.min(100, positions[myRole] + r)); sync(`Blessed!`); }
-    async function takeVoid() { document.getElementById('overlay').style.display = "none"; await animateMove(myRole, 1); sync(`Banished to Void!`); }
-
-    function handleJudgment(winnerIdx) {
-        const overlay = document.getElementById('overlay');
-        const text = document.getElementById('res-text');
-        overlay.style.display = "flex";
-        if (myRole === winnerIdx) { 
-            document.getElementById('res-img').src = "https://img.icons8.com/emoji/96/000000/trophy-emoji.png";
-            text.innerHTML = `<span style="color:gold;">🏆 ESCAPED! 🏆</span><br><small>See you later, noobs!</small>`; 
-        } else { 
-            playSound('noob');
-            document.getElementById('res-img').src = "https://img.icons8.com/emoji/96/000000/skull-emoji.png";
-            const joke = jokes[Math.floor(Math.random() * jokes.length)];
-            text.innerHTML = `<span style="color:red;">💀 LOST! 💀</span><br><small>${playerNames[winnerIdx]} won.</small><br><p style="color:white; font-style:italic; font-size:14px;">"${joke}"</p>`; 
-        }
-        document.getElementById('event-actions').innerHTML = `<button onclick="location.reload()" style="padding:10px; background:red; color:white; border:none; width:100%;">BACK TO MENU</button>`;
-    }
-
-    function checkEndState() {
-        let finCount = finished.slice(0, maxPlayers).filter(f => f === true).length;
-        if (finCount >= (maxPlayers - 1)) {
-            if (isHost) document.getElementById('host-controls').innerHTML = `<button onclick="restartGame()" style="background:green; color:white; width:100%; padding:12px; border:none; font-weight:bold; border-radius:5px;">RESTART</button>`;
-            else document.getElementById('ritual-log').innerHTML = "<span style='color:gold;'>GAME OVER. HOST RESTARTING...</span>";
-        }
-    }
-
-    function restartGame() {
-        positions = [1,1,1,1]; turn = 0; finished = [false, false, false, false]; inventory.passes = 0; inventory.usedCount = 0;
-        document.getElementById('host-controls').innerHTML = "";
-        if(!isVsCPU) broadcast({ type: 'restart' }); else updateUI();
-    }
-
     async function handleData(d) {
         if (isHost) guestConns.forEach(c => { if(c && c.peer !== d.fromPeer) c.send(d); });
         if (d.type === 'chat') {
@@ -380,89 +411,15 @@
             document.getElementById('flash-content').innerText = d.text; document.getElementById('flash-user').innerText = d.sender;
             f.style.display = "flex"; setTimeout(() => f.style.display = "none", 1500);
         }
-        if (d.type === 'sabotage') { await animateMove(d.to, d.newPos); if(d.to === myRole) playSound('noob'); updateUI(); }
-        if (d.type === 'sync') { if(!isMoving) positions = d.pos; turn = d.turn; document.getElementById('ritual-log').innerText = d.msg; updateUI(); checkEndState(); }
+        if (d.type === 'sabotage') { await animateMove(d.to, d.newPos); updateUI(); }
+        if (d.type === 'sync') { if(!isMoving) positions = d.pos; turn = d.turn; document.getElementById('ritual-log').innerText = d.msg; updateUI(); }
         if (d.type === 'init') { myRole = d.role; maxPlayers = d.max; positions = d.pos; turn = d.turn; finished = d.fin; playerNames = d.names; document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
         if (d.type === 'finish') { finished[d.winner] = true; updateUI(); handleJudgment(d.winner); }
-        if (d.type === 'restart') { positions = [1,1,1,1]; turn = 0; finished = [false, false, false, false]; inventory.passes = 0; inventory.usedCount = 0; document.getElementById('host-controls').innerHTML = ""; updateUI(); }
     }
 
     function broadcast(d) { handleData(d); guestConns.forEach(c => { if(c) c.send(d); }); }
-    
-    function sync(msg) { 
-        nextTurn(); 
-        if(!isVsCPU) {
-            const d = { type: 'sync', pos: positions, turn: turn, msg: msg, fin: finished }; 
-            if (isHost) broadcast(d); else hostConn.send(d); 
-        } else {
-            document.getElementById('ritual-log').innerText = msg;
-        }
-        updateUI(); 
-    }
-    
-    function nextTurn() { 
-        let rem = finished.slice(0, maxPlayers).filter(f => !f); 
-        if(rem.length <= 1) return; 
-        do { turn = (turn + 1) % maxPlayers; } while (finished[turn]); 
-    }
-// old one 
-    // function updateUI() {
-    //     const active = (turn === myRole && !finished[myRole] && !isMoving);
-    //     const btn = document.getElementById('roll-btn');
-    //     btn.disabled = !active;
-    //     if(finished[myRole]) btn.innerText = "SPECTATING...";
-    //     else btn.innerText = active ? "ROLL DICE" : (isMoving ? "MOVING..." : playerNames[turn].toUpperCase() + "'S TURN");
-    //     btn.className = active ? "btn-active" : "btn-wait";
-    //     document.getElementById('inv-display').innerText = `CARDS: ${inventory.passes} (${inventory.usedCount}/5 USED)`;
-    //     const sBar = document.getElementById('soul-bar'); sBar.innerHTML = "";
-    //     playerNames.slice(0, maxPlayers).forEach((name, i) => {
-    //         const div = document.createElement('div');
-    //         div.className = `soul-id ${i === myRole ? 'my-identity' : ''} ${i === turn ? 'active-turn' : ''}`;
-    //         div.innerHTML = `<span class="soul-dot p${i}"></span> ${finished[i] ? '🏁 ' : ''}${name}`;
-    //         sBar.appendChild(div);
-    //     });
-    //     document.querySelectorAll('.player').forEach(p => p.remove());
-    //     positions.slice(0, maxPlayers).forEach((pos, i) => {
-    //         const cell = document.getElementById('cell-' + pos);
-    //         if (cell) { const dot = document.createElement('div'); dot.className = `player p${i}`; cell.appendChild(dot); }
-    //     });
-
-    //     // Trigger Bot Turn if VS CPU
-    //     if (isVsCPU && turn === 1 && !finished[1] && !isMoving) botTurn();
-    // }
-
-    // new one 
-    function updateUI() {
-        const active = (turn === myRole && !finished[myRole] && !isMoving);
-        const btn = document.getElementById('roll-btn');
-        btn.disabled = !active;
-        
-        if(finished[myRole]) btn.innerText = "SPECTATING...";
-        else btn.innerText = active ? "ROLL DICE" : (isMoving ? "MOVING..." : playerNames[turn].toUpperCase() + "'S TURN");
-        
-        btn.className = active ? "btn-active" : "btn-wait";
-        document.getElementById('inv-display').innerText = `CARDS: ${inventory.passes} (${inventory.usedCount}/5 USED)`;
-        
-        const sBar = document.getElementById('soul-bar'); 
-        sBar.innerHTML = "";
-        playerNames.slice(0, maxPlayers).forEach((name, i) => {
-            const div = document.createElement('div');
-            div.className = `soul-id ${i === myRole ? 'my-identity' : ''} ${i === turn ? 'active-turn' : ''}`;
-            div.innerHTML = `<span class="soul-dot p${i}"></span> ${finished[i] ? '🏁 ' : ''}${name}`;
-            sBar.appendChild(div);
-        });
-
-        refreshBoardOnly(); // Use the helper here
-
-        // ONLY trigger bot if it's the bot's turn AND it's not already moving
-        if (isVsCPU && turn === 1 && !finished[1] && !isMoving) {
-            botTurn();
-        }
-    }
-
     function copyL() { const i = document.getElementById('lInp'); i.select(); navigator.clipboard.writeText(i.value); alert("Link Copied!"); }
     function sendEmoji(e) { const m = { type: 'chat', sender: playerNames[myRole], text: e, fromPeer: peer.id }; if (isHost) broadcast(m); else hostConn.send(m); }
-    function closeOverlaySync(m) { document.getElementById('overlay').style.display="none"; sync(m); }
     function sendInit() { guestConns.forEach((c, i) => { if(c) c.send({ type: 'init', role: i+1, max: maxPlayers, pos: positions, turn: turn, fin: finished, names: playerNames }) }); document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
 </script>
 </body>
