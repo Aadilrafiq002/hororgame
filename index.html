@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>100 GATES: INFERNAL EDITION</title>
+    <title>100 GATES: SPIRIT INFERNO</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        :root { --bg: #050505; --accent: #bc0000; --panel: #1a1a1a; --fire: #ff4500; }
+        :root { --bg: #050505; --accent: #bc0000; --panel: #1a1a1a; }
         body { background: var(--bg); color: #cfcfcf; font-family: 'Courier New', monospace; margin: 0; text-align: center; overflow-x: hidden; touch-action: manipulation; }
         
         /* Auth */
@@ -14,21 +14,24 @@
         #auth-screen input { padding: 12px; margin: 5px; width: 80%; max-width: 300px; background: #111; border: 1px solid #444; color: white; border-radius: 5px; }
 
         /* Board & Fire Effect */
-        #game-container { display: grid; grid-template-columns: repeat(10, 1fr); width: 95vw; max-width: 400px; aspect-ratio: 1/1; margin: 5px auto; border: 5px solid #333; background: #000; }
+        #game-container { display: grid; grid-template-columns: repeat(10, 1fr); width: 95vw; max-width: 400px; aspect-ratio: 1/1; margin: 5px auto; border: 5px solid #333; background: #000; position: relative; }
         .cell { border: 0.1px solid #1a1a1a; display: flex; align-items: center; justify-content: center; font-size: 10px; position: relative; background: #080808; color: #444; overflow: hidden; }
         
-        /* The Fire Flicker */
-        .fire-glow { 
-            position: absolute; inset: 0; opacity: 0; 
-            background: radial-gradient(circle, rgba(255,69,0,0.3) 0%, transparent 70%); 
-        }
+        .fire-glow { position: absolute; inset: 0; opacity: 0; background: radial-gradient(circle, rgba(255,69,0,0.3) 0%, transparent 70%); pointer-events: none; }
 
-        /* Symbol System - NO ANIMATION */
-        .player { width: 18px; height: 18px; border-radius: 50%; position: absolute; border: 2px solid #000; z-index: 10; transform: none !important; transition: none !important; }
-        .p0 { background: #ff3333; box-shadow: 0 0 10px #f00; } 
-        .p1 { background: #33aaff; box-shadow: 0 0 10px #0af; } 
-        .p2 { background: #33ff77; box-shadow: 0 0 10px #0f7; } 
-        .p3 { background: #f0ff33; box-shadow: 0 0 10px #ff0; }
+        /* Spirit Symbols - NO ANIMATION */
+        .player { 
+            width: 24px; height: 24px; 
+            position: absolute; 
+            z-index: 50; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            font-size: 18px;
+            /* Animation removed for instant movement */
+            transition: none !important; 
+            transform: none !important;
+        }
         
         #ritual-log { background: #000; color: #888; padding: 8px; font-size: 12px; height: 35px; border-bottom: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; }
 
@@ -56,7 +59,7 @@
         <h1 style="color:var(--accent); font-size: 40px; letter-spacing: 5px;">100 GATES</h1>
         <input type="text" id="user-name" placeholder="Name">
         <input type="password" id="admin-pass" placeholder="Admin Key">
-        <button onclick="handleAuth()" style="width:80%; padding:15px; background:var(--accent); color:white; border:none; font-weight:bold;">ENTER THE VOID</button>
+        <button onclick="handleAuth()" style="width:80%; padding:15px; background:var(--accent); color:white; border:none; font-weight:bold;">ENTER REALM</button>
     </div>
 
     <div id="emoji-flash"><p id="flash-content"></p><p id="flash-user" style="color:red; font-size: 20px;"></p></div>
@@ -95,6 +98,7 @@
 <script>
     const ADMIN_USER = "aadil";
     const ADMIN_PASS = "aadil123";
+    const SPIRIT_ICONS = ["🐉", "🦁", "🐯", "🦉"];
 
     let peer, hostConn, guestConns = [];
     let myRole = -1, isHost = false, turn = 0, positions = [1,1,1,1], maxPlayers = 2;
@@ -126,9 +130,9 @@
     // FIRE ANIMATION SYSTEM
     function flickerFire() {
         cells.forEach(c => {
-            if (Math.random() < 0.05) { // Random chance to light up
-                c.style.opacity = Math.random() * 0.8;
-                setTimeout(() => { c.style.opacity = 0; }, 200 + Math.random() * 800);
+            if (Math.random() < 0.04) { 
+                c.style.opacity = Math.random() * 0.7;
+                setTimeout(() => { c.style.opacity = 0; }, 300 + Math.random() * 700);
             }
         });
         requestAnimationFrame(flickerFire);
@@ -285,14 +289,15 @@
         document.getElementById('roll-btn').className = active ? "btn-active" : "btn-wait";
         document.getElementById('inv-display').innerText = `CARDS: ${inventory.passes}`;
         
-        // Instant Movement - Remove all existing dots
+        // Instant Movement 
         document.querySelectorAll('.player').forEach(p => p.remove());
         positions.slice(0, maxPlayers).forEach((pos, i) => {
             const cell = document.getElementById('cell-' + pos);
             if (cell) {
-                const dot = document.createElement('div');
-                dot.className = `player p${i}`;
-                cell.appendChild(dot);
+                const spirit = document.createElement('div');
+                spirit.className = `player`;
+                spirit.innerText = SPIRIT_ICONS[i]; // Restore Dragon, Lion, etc.
+                cell.appendChild(spirit);
             }
         });
     }
