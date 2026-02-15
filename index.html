@@ -218,44 +218,104 @@
             handleJudgment(myRole);
             return; 
         }
-        // Chance to trigger event
         if (personalRolls >= 2 || Math.random() < 0.30) { personalRolls = 0; triggerResult(); } 
         else { sync(`${playerNames[myRole]} moved`); }
     }
+
+    // function triggerResult() {
+    //     const overlay = document.getElementById('overlay');
+    //     const actions = document.getElementById('event-actions');
+    //     const resText = document.getElementById('res-text');
+    //     overlay.style.display = "flex";
+    //     let rand = Math.random() * 100;
+        
+    //     if (rand < 0.20) { // Card
+    //         inventory.passes++;
+    //         resText.style.color = "gold"; resText.innerText = "SABOTAGE CARD FOUND!";
+    //         document.getElementById('res-img').src = "f1.jpg";
+    //         actions.innerHTML = `<button onclick="closeOverlaySync('Found card')" style="width:100%; padding:15px; background:green; color:white; border:none; border-radius:5px;">COLLECT</button>`;
+    //     } 
+    //     else if (rand < 0.40) { // Reward
+    //         let bonus = Math.floor(Math.random() * 5) + 5; 
+    //         resText.style.color = "#00ff00"; resText.innerText = "BLESSED: +" + bonus;
+    //         document.getElementById('res-img').src = "f2.jpg";
+    //         actions.innerHTML = `<button onclick="takeReward(${bonus})" style="width:100%; padding:15px; background:green; color:white; border:none; border-radius:5px;">RISE</button>`;
+    //     }
+    //     else if (rand < 0.80) { // Trap
+    //         resText.style.color = "red"; resText.innerText = "INFERNO TRAP: -10";
+    //         document.getElementById('res-img').src = "h1.jpg";
+    //         let btns = `<button onclick="takePenalty(10)" style="width:100%; padding:15px; background:#444; color:white; border:none; border-radius:5px;">ACCEPT</button>`;
+    //         if (inventory.passes > 0 && inventory.usedCount < 5) {
+    //             for (let i=0; i<maxPlayers; i++) if(i !== myRole && !finished[i]) btns += `<button onclick="useSabotage(${i}, 10)" style="background:purple; color:white; margin-top:5px; padding:10px; width:100%; border:none; border-radius:5px;">TRAP ${playerNames[i]}</button>`;
+    //         }
+    //         actions.innerHTML = btns;
+    //     }
+    //     else { // THE VOID
+    //         playSound('noob');
+    //         resText.style.color = "#ff00ff"; resText.innerText = "THE VOID: BACK TO GATE 1";
+    //         document.getElementById('res-img').src = "h2.jpg";
+    //         let btns = `<button onclick="takeVoid()" style="width:100%; padding:15px; background:black; color:white; border:1px solid #ff00ff; border-radius:5px;">FALL</button>`;
+    //         // NEW: Void Transfer logic
+    //         if (inventory.passes > 0 && inventory.usedCount < 5) {
+    //             for (let i=0; i<maxPlayers; i++) if(i !== myRole && !finished[i]) btns += `<button onclick="useVoidSabotage(${i})" style="background:#500050; color:white; margin-top:5px; padding:10px; width:100%; border:none; border-radius:5px;">VOID ${playerNames[i].toUpperCase()}</button>`;
+    //         }
+    //         actions.innerHTML = btns;
+    //     }
+    // }
 
     function triggerResult() {
         const overlay = document.getElementById('overlay');
         const actions = document.getElementById('event-actions');
         const resText = document.getElementById('res-text');
         overlay.style.display = "flex";
-        let rand = Math.random();
         
-        if (rand < 0.20) { // 20% Card
+        // Using 100% scale for exact probability distribution
+        let rand = Math.random() * 100; 
+        
+        // 1. THE VOID (20% Probability: 0 - 20)
+        if (rand < 20) { 
+            playSound('noob');
+            resText.style.color = "#ff00ff"; resText.innerText = "THE VOID: BACK TO GATE 1";
+            document.getElementById('res-img').src = "h2.jpg";
+            let btns = `<button onclick="takeVoid()" style="width:100%; padding:15px; background:black; color:white; border:1px solid #ff00ff; border-radius:5px;">FALL ALONE</button>`;
+            
+            if (inventory.passes > 0 && inventory.usedCount < 5) {
+                for (let i=0; i<maxPlayers; i++) {
+                    if(i !== myRole && !finished[i]) {
+                        btns += `<button onclick="useVoidSabotage(${i})" style="background:#500050; color:white; margin-top:5px; padding:10px; width:100%; border:none; border-radius:5px;">BANISH ${playerNames[i].toUpperCase()}</button>`;
+                    }
+                }
+            }
+            actions.innerHTML = btns;
+        } 
+        // 2. SABOTAGE CARD (15% Probability: 20 - 35)
+        else if (rand < 35) { 
             inventory.passes++;
             resText.style.color = "gold"; resText.innerText = "SABOTAGE CARD FOUND!";
             document.getElementById('res-img').src = "f1.jpg";
             actions.innerHTML = `<button onclick="closeOverlaySync('Found card')" style="width:100%; padding:15px; background:green; color:white; border:none; border-radius:5px;">COLLECT</button>`;
-        } 
-        else if (rand < 0.40) { // 20% Reward
+        }
+        // 3. REWARDS (32% Probability: 35 - 67)
+        else if (rand < 67) { 
             let bonus = Math.floor(Math.random() * 5) + 5; 
             resText.style.color = "#00ff00"; resText.innerText = "BLESSED: +" + bonus;
             document.getElementById('res-img').src = "f2.jpg";
             actions.innerHTML = `<button onclick="takeReward(${bonus})" style="width:100%; padding:15px; background:green; color:white; border:none; border-radius:5px;">RISE</button>`;
         }
-        else if (rand < 0.80) { // 40% Trap/Sabotage
+        // 4. NORMAL PUNISHMENT (Left 33% Probability: 67 - 100)
+        else { 
             resText.style.color = "red"; resText.innerText = "INFERNO TRAP: -10";
             document.getElementById('res-img').src = "h1.jpg";
-            let btns = `<button onclick="takePenalty(10)" style="width:100%; padding:15px; background:#444; color:white; border:none; border-radius:5px;">ACCEPT</button>`;
+            let btns = `<button onclick="takePenalty(10)" style="width:100%; padding:15px; background:#444; color:white; border:none; border-radius:5px;">ACCEPT TRAP</button>`;
+            
             if (inventory.passes > 0 && inventory.usedCount < 5) {
-                for (let i=0; i<maxPlayers; i++) if(i !== myRole && !finished[i]) btns += `<button onclick="useSabotage(${i}, 10)" style="background:purple; color:white; margin-top:5px; padding:10px; width:100%; border:none; border-radius:5px;">TRAP ${playerNames[i]}</button>`;
+                for (let i=0; i<maxPlayers; i++) {
+                    if(i !== myRole && !finished[i]) {
+                        btns += `<button onclick="useSabotage(${i}, 10)" style="background:purple; color:white; margin-top:5px; padding:10px; width:100%; border:none; border-radius:5px;">TRAP ${playerNames[i].toUpperCase()}</button>`;
+                    }
+                }
             }
             actions.innerHTML = btns;
-        }
-        else { // 20% THE VOID
-            playSound('noob');
-            resText.style.color = "#ff00ff"; resText.innerText = "THE VOID: BACK TO GATE 1";
-            document.getElementById('res-img').src = "h2.jpg";
-            actions.innerHTML = `<button onclick="takeVoid()" style="width:100%; padding:15px; background:black; color:white; border:1px solid #ff00ff; border-radius:5px;">FALL</button>`;
         }
     }
 
@@ -266,6 +326,15 @@
         const d = { type: 'sabotage', to: target, newPos: newPos, fromPeer: peer.id };
         if (isHost) broadcast(d); else hostConn.send(d);
         sync(`Sabotaged ${playerNames[target]}!`);
+    }
+
+    async function useVoidSabotage(target) {
+        inventory.passes--; inventory.usedCount++;
+        document.getElementById('overlay').style.display = "none";
+        let newPos = 1; // Send target back to start
+        const d = { type: 'sabotage', to: target, newPos: newPos, fromPeer: peer.id };
+        if (isHost) broadcast(d); else hostConn.send(d);
+        sync(`BANISHED ${playerNames[target]} TO VOID!`);
     }
 
     async function takePenalty(p) { document.getElementById('overlay').style.display = "none"; await animateMove(myRole, Math.max(1, positions[myRole] - p)); sync(`Burned!`); }
