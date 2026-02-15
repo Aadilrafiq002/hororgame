@@ -3,187 +3,124 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>100 GATES: APEX SPIRITS UNLEASHED</title>
+    <title>100 GATES: APEX SPIRITS</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
-        :root { --bg: #050505; --accent: #bc0000; --panel: #111; }
+        :root { --bg: #050505; --accent: #bc0000; }
         body { background: var(--bg); color: #eee; font-family: 'Courier New', monospace; margin: 0; text-align: center; overflow-x: hidden; touch-action: manipulation; }
-        
-        /* Screens */
         #auth-screen, #char-screen, #win-overlay { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         input { padding: 12px; margin: 5px; width: 80%; max-width: 300px; background: #111; border: 1px solid #444; color: white; border-radius: 5px; }
-
-        /* Character Selection */
         .char-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 90%; max-width: 400px; margin-top: 20px; }
-        .char-card { background: #0a0a0a; border: 2px solid #222; padding: 15px; border-radius: 12px; cursor: pointer; transition: 0.3s; }
-        .char-card.selected { border-color: gold; box-shadow: 0 0 20px rgba(255,215,0,0.4); }
-        .char-card.taken { opacity: 0.2; cursor: not-allowed; filter: grayscale(1); }
-
-        /* Player Symbols & Auras */
-        .player { width: 32px; height: 32px; position: absolute; z-index: 50; display: flex; align-items: center; justify-content: center; font-size: 24px; transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); pointer-events: none; }
-        .aura-dragon { filter: drop-shadow(0 0 10px #ff0000); animation: float 2s infinite ease-in-out; } 
-        .aura-lion { filter: drop-shadow(0 0 10px #ffa500); animation: float 2.5s infinite ease-in-out; } 
-        .aura-tiger { filter: drop-shadow(0 0 10px #ffffff); animation: float 1.8s infinite ease-in-out; } 
-        .aura-owl { filter: drop-shadow(0 0 10px #8a2be2); animation: float 2.2s infinite ease-in-out; }
-
-        .active-turn { transform: scale(1.6); z-index: 100 !important; animation: pulse 0.8s infinite alternate !important; }
-        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-        @keyframes pulse { from { filter: drop-shadow(0 0 5px gold); } to { filter: drop-shadow(0 0 30px gold) scale(1.7); } }
-
-        /* Board */
-        #game-container { display: grid; grid-template-columns: repeat(10, 1fr); width: 98vw; max-width: 420px; aspect-ratio: 1/1; margin: 10px auto; border: 4px solid #222; background: #000; box-shadow: 0 0 40px #000; }
+        .char-card { background: #0a0a0a; border: 2px solid #222; padding: 15px; border-radius: 12px; cursor: pointer; }
+        .char-card.selected { border: 2px solid gold; box-shadow: 0 0 15px gold; }
+        .char-card.taken { opacity: 0.2; filter: grayscale(1); pointer-events: none; }
+        .player { width: 32px; height: 32px; position: absolute; z-index: 50; display: flex; align-items: center; justify-content: center; font-size: 24px; transition: all 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .aura-dragon { filter: drop-shadow(0 0 8px red); } .aura-lion { filter: drop-shadow(0 0 8px orange); }
+        .aura-tiger { filter: drop-shadow(0 0 8px white); } .aura-owl { filter: drop-shadow(0 0 8px purple); }
+        .active-turn { transform: scale(1.5); animation: pulse 0.8s infinite alternate; z-index: 100; }
+        @keyframes pulse { from { filter: brightness(1); } to { filter: brightness(1.8) drop-shadow(0 0 20px gold); } }
+        #game-container { display: grid; grid-template-columns: repeat(10, 1fr); width: 95vw; max-width: 400px; aspect-ratio: 1/1; margin: 10px auto; border: 3px solid #333; background: #000; }
         .cell { border: 0.1px solid #111; display: flex; align-items: center; justify-content: center; font-size: 10px; color: #222; position: relative; }
-        
-        #player-legend { display: flex; justify-content: center; gap: 8px; margin: 10px auto; flex-wrap: wrap; width: 95%; }
-        .legend-item { font-size: 11px; background: #111; padding: 5px 12px; border-radius: 20px; border: 1px solid #333; display: flex; align-items: center; gap: 6px; }
-
-        /* Controls */
         .panel { background: #0a0a0a; padding: 15px; border-radius: 15px; width: 90%; max-width: 400px; border: 1px solid #333; margin: 10px auto; }
-        #roll-btn { padding: 18px; width: 100%; border-radius: 8px; font-size: 20px; font-weight: bold; border: none; transition: 0.3s; }
-        .btn-active { background: linear-gradient(45deg, #bc0000, #ff4500); color: white; cursor: pointer; box-shadow: 0 5px 15px rgba(188,0,0,0.5); }
+        #roll-btn { padding: 18px; width: 100%; border-radius: 8px; font-size: 18px; font-weight: bold; border: none; }
+        .btn-active { background: linear-gradient(45deg, #bc0000, #ff4500); color: white; }
         .btn-wait { background: #1a1a1a; color: #444; }
-
-        /* Chat & Emoji */
-        #chat-window { position: fixed; bottom: 0; width: 100%; background: #000; border-top: 2px solid #222; z-index: 8000; }
+        #chat-window { position: fixed; bottom: 0; width: 100%; background: #000; border-top: 2px solid #222; }
         .emoji-grid { display: grid; grid-template-columns: repeat(5, 1fr); padding: 10px; gap: 5px; }
-        .emoji-grid button { font-size: 24px; padding: 8px; background: #111; border: 1px solid #222; border-radius: 5px; }
-
-        #emoji-flash { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 99999; pointer-events: none; }
-        #flash-content { font-size: 120px; margin: 0; }
-        #flash-user { color: gold; font-size: 20px; font-weight: bold; margin-top: 10px; }
-
-        /* Event Overlays */
-        #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9000; padding: 20px; }
-        .event-card { border: 2px solid #bc0000; padding: 20px; border-radius: 15px; background: #000; width: 100%; max-width: 350px; }
+        #emoji-flash { position: fixed; inset: 0; display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 10000; pointer-events: none; background: rgba(0,0,0,0.7); }
+        #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.95); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9000; }
     </style>
 </head>
 <body>
 
     <div id="auth-screen">
-        <h1 style="color:#bc0000; letter-spacing: 5px;">100 GATES</h1>
-        <input type="text" id="user-name" placeholder="ENTER NAME">
+        <h1 style="color:#bc0000;">100 GATES</h1>
+        <input type="text" id="user-name" placeholder="NAME">
         <input type="password" id="admin-pass" placeholder="HOST KEY">
-        <button onclick="handleAuth()" style="width:80%; padding:15px; background:#bc0000; color:white; border:none; margin-top:10px; font-weight:bold; cursor:pointer;">CLAIM SOUL</button>
+        <button onclick="handleAuth()" style="width:80%; padding:15px; background:#bc0000; color:white; border:none; margin-top:10px;">ENTER</button>
     </div>
 
     <div id="char-screen" style="display:none;">
-        <h2 style="color:gold;">SELECT YOUR SPIRIT</h2>
+        <h2 style="color:gold;">PICK A SPIRIT</h2>
         <div class="char-grid" id="char-options">
-            <div class="char-card" id="card-0" onclick="selectChar(0)">
-                <div style="font-size:40px;">🐉</div><h4>DRAGON</h4>
-            </div>
-            <div class="char-card" id="card-1" onclick="selectChar(1)">
-                <div style="font-size:40px;">🦁</div><h4>LION</h4>
-            </div>
-            <div class="char-card" id="card-2" onclick="selectChar(2)">
-                <div style="font-size:40px;">🐯</div><h4>TIGER</h4>
-            </div>
-            <div class="char-card" id="card-3" onclick="selectChar(3)">
-                <div style="font-size:40px;">🦉</div><h4>OWL</h4>
-            </div>
+            <div class="char-card" id="card-0" onclick="selectChar(0)"><div>🐉</div>DRAGON</div>
+            <div class="char-card" id="card-1" onclick="selectChar(1)"><div>🦁</div>LION</div>
+            <div class="char-card" id="card-2" onclick="selectChar(2)"><div>🐯</div>TIGER</div>
+            <div class="char-card" id="card-3" onclick="selectChar(3)"><div>🦉</div>OWL</div>
         </div>
-        <button id="confirm-char" onclick="confirmSelection()" style="margin-top:25px; padding:15px 50px; background:gold; color:black; border:none; font-weight:bold; display:none; border-radius:50px; cursor:pointer;">ACTIVATE</button>
-        <p id="char-wait-msg" style="color:#888; margin-top:15px; display:none; font-weight:bold;">WAITING FOR OTHER SOULS...</p>
+        <button id="confirm-char" onclick="confirmSelection()" style="margin-top:20px; padding:15px 40px; background:gold; display:none;">ACTIVATE</button>
+        <p id="wait-msg" style="display:none; color:gray;">WAITING FOR OTHERS...</p>
     </div>
 
     <div id="win-overlay" style="display:none;">
-        <h1 style="color:gold; font-size:40px; margin-bottom:10px;">CONQUERED</h1>
-        <div id="rankings" style="margin:20px; font-size:24px; color:white; line-height:2;"></div>
-        <div id="host-restart-area" style="display:none;">
-            <button onclick="resetGame()" style="padding:20px 40px; background:#bc0000; color:white; border:none; font-weight:bold; border-radius:10px; cursor:pointer;">RESTART REALM</button>
-        </div>
-        <p id="guest-restart-msg" style="color:#444; display:none;">Waiting for Host to reset...</p>
+        <h1 style="color:gold;">CONQUERED</h1>
+        <div id="rankings" style="color:white; font-size:20px; margin:20px;"></div>
+        <button onclick="location.reload()" style="padding:15px; background:red; color:white;">RESTART</button>
     </div>
 
-    <div id="ritual-log" style="font-size:12px; color:#555; padding:10px;">Ready...</div>
-    <div id="player-legend"></div>
+    <div id="ritual-log" style="color:#444; padding:5px; font-size:12px;">Ready...</div>
     <div id="game-container"></div>
 
-    <div class="panel" style="margin-bottom: 160px;">
-        <div id="dice-box" style="font-size: 32px; margin-bottom: 5px;">🎲</div>
+    <div class="panel" style="margin-bottom: 150px;">
+        <div id="dice-box" style="font-size: 24px;">🎲</div>
         <button id="roll-btn" class="btn-wait" onclick="playTurn()" disabled>WAITING...</button>
     </div>
 
-    <div id="chat-window">
-        <div class="emoji-grid">
-            <button onclick="sendEmoji('👻')">👻</button><button onclick="sendEmoji('💀')">💀</button>
-            <button onclick="sendEmoji('😱')">😱</button><button onclick="sendEmoji('🔥')">🔥</button>
-            <button onclick="sendEmoji('😈')">😈</button><button onclick="sendEmoji('😂')">😂</button>
-            <button onclick="sendEmoji('🙏')">🙏</button><button onclick="sendEmoji('🤫')">🤫</button>
-            <button onclick="sendEmoji('👎')">👎</button><button onclick="sendEmoji('🤡')">🤡</button>
-        </div>
-    </div>
+    <div id="chat-window"><div class="emoji-grid">
+        <button onclick="sendEmoji('👻')">👻</button><button onclick="sendEmoji('💀')">💀</button>
+        <button onclick="sendEmoji('🔥')">🔥</button><button onclick="sendEmoji('😂')">😂</button>
+        <button onclick="sendEmoji('🤡')">🤡</button>
+    </div></div>
+
+    <div id="emoji-flash"><h1 id="f-emoji" style="font-size:100px;"></h1><p id="f-user" style="color:gold;"></p></div>
 
     <div id="overlay">
-        <div class="event-card">
-            <img id="res-img" src="" style="width:100%; border-radius:10px; margin-bottom:15px;">
-            <h2 id="res-text" style="margin:10px 0;"></h2>
-            <div id="event-actions"></div>
-        </div>
-    </div>
-
-    <div id="emoji-flash">
-        <p id="flash-content"></p>
-        <p id="flash-user"></p>
+        <h2 id="res-text" style="color:white;"></h2>
+        <div id="event-actions" style="width:80%;"></div>
     </div>
 
 <script>
     const ADMIN_USER = "aadil", ADMIN_PASS = "aadil123";
-    const CHARS = [
-        { name: "Dragon", icon: "🐉", class: "aura-dragon" },
-        { name: "Lion", icon: "🦁", class: "aura-lion" },
-        { name: "Tiger", icon: "🐯", class: "aura-tiger" },
-        { name: "Owl", icon: "🦉", class: "aura-owl" }
-    ];
-
-    let peer, hostConn, guestConns = [];
-    let myRole = -1, isHost = false, turn = 0, positions = [1,1,1,1], maxPlayers = 2;
-    let playerNames = ["P1", "P2", "P3", "P4"], playerChars = [-1, -1, -1, -1];
-    let finished = [false, false, false, false], winnersList = [], inventory = { passes: 0 };
+    const CHARS = [{n:"Dragon", i:"🐉", c:"aura-dragon"}, {n:"Lion", i:"🦁", c:"aura-lion"}, {n:"Tiger", i:"🐯", c:"aura-tiger"}, {n:"Owl", i:"🦉", c:"aura-owl"}];
+    let peer, hostConn, guestConns = [], myRole = -1, isHost = false, maxPlayers = 2;
+    let playerNames = [], playerChars = [-1,-1,-1,-1], positions = [1,1,1,1], turn = 0, finished = [false,false,false,false], winners = [];
 
     function handleAuth() {
         const name = document.getElementById('user-name').value.trim();
         const pass = document.getElementById('admin-pass').value.trim();
         const rID = window.location.hash.substring(1);
-        if(!name) return;
-        localStorage.setItem('gate_username', name);
-        if (name.toLowerCase() === ADMIN_USER && pass === ADMIN_PASS) { isHost = true; document.getElementById('auth-screen').style.display = 'none'; showSetup(); } 
-        else if (rID) { isHost = false; document.getElementById('auth-screen').style.display = 'none'; startGuest(rID, name); } 
-        else { alert("Access Denied."); }
+        if(!name) return; localStorage.setItem('gn', name);
+        if (name.toLowerCase() === ADMIN_USER && pass === ADMIN_PASS) { isHost = true; document.getElementById('auth-screen').style.display='none'; showSetup(); }
+        else if (rID) { isHost = false; document.getElementById('auth-screen').style.display='none'; startGuest(rID, name); }
     }
 
     function showSetup() {
-        document.body.innerHTML += `<div id="hs" style="position:fixed;inset:0;background:#000;z-index:9000;display:flex;flex-direction:column;justify-content:center;align-items:center;">
-            <h3 style="color:#bc0000">LOBBY SIZE</h3><select id="pc" style="padding:15px;width:200px;"><option value="2">2 Souls</option><option value="3">3 Souls</option><option value="4">4 Souls</option></select>
-            <button onclick="fh()" style="margin-top:20px;padding:15px 30px;background:#bc0000;color:white;border:none;font-weight:bold;cursor:pointer;">GENERATE GATE</button>
-        </div>`;
+        document.body.innerHTML += `<div id="setup" style="position:fixed;inset:0;background:#000;z-index:10000;display:flex;flex-direction:column;justify-content:center;align-items:center;">
+            <h3>PLAYERS</h3><select id="p_count" style="padding:10px;"><option value="2">2 Players</option><option value="3">3 Players</option><option value="4">4 Players</option></select>
+            <button onclick="initHost()" style="margin-top:20px;padding:15px;background:red;color:white;">CREATE GATE</button></div>`;
     }
 
-    function fh() {
-        maxPlayers = parseInt(document.getElementById('pc').value);
-        playerNames[0] = localStorage.getItem('gate_username');
-        document.getElementById('hs').remove();
+    function initHost() {
+        maxPlayers = parseInt(document.getElementById('p_count').value);
+        playerNames = [localStorage.getItem('gn')]; document.getElementById('setup').remove();
         peer = new Peer();
         peer.on('open', id => {
-            myRole = 0;
-            const link = window.location.origin + window.location.pathname + '#' + id;
-            document.body.innerHTML += `<div id="lb" style="position:fixed;inset:0;background:#000;z-index:9000;display:flex;flex-direction:column;justify-content:center;align-items:center;">
-                <p>SHARE THIS LINK:</p><input type="text" value="${link}" id="lInp" readonly style="text-align:center;"><button onclick="copyL()" style="padding:10px 20px;margin-top:10px;cursor:pointer;">COPY LINK</button>
-                <p id="wc" style="color:gold;margin-top:20px;">Waiting for souls (0/${maxPlayers-1})...</p>
-            </div>`;
+            myRole = 0; const link = window.location.origin + window.location.pathname + '#' + id;
+            document.body.innerHTML += `<div id="lobby" style="position:fixed;inset:0;background:#000;z-index:10000;display:flex;flex-direction:column;justify-content:center;align-items:center;">
+                <p>LINK:</p><input type="text" value="${link}" readonly style="text-align:center;"><p id="wait_count">Waiting (0/${maxPlayers-1})</p></div>`;
         });
         peer.on('connection', c => {
-            c.on('data', d => {
-                if(d.type === 'join') {
-                    if (guestConns.length >= maxPlayers-1) return;
-                    guestConns.push(c); playerNames[guestConns.length] = d.name;
-                    document.getElementById('wc').innerText = `Waiting (${guestConns.length}/${maxPlayers-1})...`;
-                    if(guestConns.length === maxPlayers-1) {
-                        document.getElementById('lb').remove();
-                        broadcast({ type: 'scs', names: playerNames, max: maxPlayers });
-                    }
-                }
-                handleData(d);
+            c.on('open', () => {
+                c.on('data', d => {
+                    if(d.type==='join') {
+                        guestConns.push(c); playerNames.push(d.name);
+                        document.getElementById('wait_count').innerText = `Waiting (${guestConns.length}/${maxPlayers-1})`;
+                        if(playerNames.length === maxPlayers) {
+                            document.getElementById('lobby').remove();
+                            broadcast({type:'start_char', names:playerNames, max:maxPlayers});
+                        }
+                    } else handleData(d);
+                });
             });
         });
     }
@@ -192,145 +129,111 @@
         peer = new Peer();
         peer.on('open', () => {
             hostConn = peer.connect(id);
-            hostConn.on('open', () => hostConn.send({ type: 'join', name: name }));
-            hostConn.on('data', d => handleData(d));
+            hostConn.on('open', () => {
+                hostConn.send({type:'join', name:name});
+                hostConn.on('data', d => handleData(d));
+            });
         });
     }
 
-    let tempC = -1;
+    let selectedIdx = -1;
     function selectChar(i) {
-        if (playerChars.includes(i)) return;
+        if(playerChars.includes(i)) return;
         document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected'));
-        document.getElementById('card-' + i).classList.add('selected');
-        document.getElementById('confirm-char').style.display = "block";
-        tempC = i;
+        document.getElementById('card-'+i).classList.add('selected');
+        document.getElementById('confirm-char').style.display='block';
+        selectedIdx = i;
     }
 
     function confirmSelection() {
-        document.getElementById('confirm-char').style.display = "none";
-        document.getElementById('char-wait-msg').style.display = "block";
-        const d = { type: 'cp', role: myRole, ci: tempC };
-        if (isHost) handleData(d); else hostConn.send(d);
+        document.getElementById('confirm-char').style.display='none';
+        document.getElementById('wait-msg').style.display='block';
+        if(isHost) handleData({type:'pick', role:0, char:selectedIdx});
+        else hostConn.send({type:'pick', role:myRole, char:selectedIdx});
     }
 
     function handleData(d) {
-        if (isHost) guestConns.forEach(c => { if(c.peer !== d.fromPeer) c.send(d); });
-        
-        if (d.type === 'scs') { 
+        if(isHost) guestConns.forEach(c => c.send(d));
+        if(d.type==='start_char') { 
             playerNames = d.names; maxPlayers = d.max; 
-            myRole = playerNames.indexOf(localStorage.getItem('gate_username'));
-            document.getElementById('char-screen').style.display = "flex"; 
+            myRole = playerNames.indexOf(localStorage.getItem('gn'));
+            document.getElementById('char-screen').style.display='flex'; 
         }
-        if (d.type === 'cp') {
-            playerChars[d.role] = d.ci;
-            document.getElementById('card-' + d.ci).classList.add('taken');
-            if (isHost) {
-                let picked = playerChars.filter(x => x !== -1).length;
-                if (picked === maxPlayers) broadcast({ type: 'sg', chars: playerChars });
+        if(d.type==='pick') {
+            playerChars[d.role] = d.char;
+            document.getElementById('card-'+d.char).classList.add('taken');
+            if(isHost) {
+                let count = 0; for(let i=0; i<maxPlayers; i++) if(playerChars[i] !== -1) count++;
+                if(count === maxPlayers) broadcast({type:'go', chars:playerChars});
             }
         }
-        if (d.type === 'sg') { playerChars = d.chars; document.getElementById('char-screen').style.display = "none"; updateUI(); }
-        if (d.type === 'sync') { positions = d.pos; turn = d.turn; document.getElementById('ritual-log').innerText = d.msg; updateUI(); }
-        if (d.type === 'sab') { positions[d.to] = d.newPos; updateUI(); }
-        if (d.type === 'chat') { showFlash(d); }
-        if (d.type === 'fin') {
-            if (!winnersList.includes(d.name)) winnersList.push(d.name);
-            finished[d.idx] = true;
-            if (winnersList.length >= maxPlayers - 1) {
-                for(let i=0; i<maxPlayers; i++) if(!winnersList.includes(playerNames[i])) winnersList.push(playerNames[i]);
-                showWin();
-            }
-            updateUI();
-        }
-        if (d.type === 'gr') {
-            location.reload();
+        if(d.type==='go') { playerChars = d.chars; document.getElementById('char-screen').style.display='none'; updateUI(); }
+        if(d.type==='sync') { positions = d.pos; turn = d.turn; document.getElementById('ritual-log').innerText = d.msg; updateUI(); }
+        if(d.type==='chat') { showFlash(d); }
+        if(d.type==='fin') {
+            if(!winners.includes(d.name)) winners.push(d.name); finished[d.idx] = true;
+            if(winners.length >= maxPlayers - 1) showWin(); updateUI();
         }
     }
 
     function playTurn() {
-        if(finished[myRole]) return;
-        let r = Math.floor(Math.random() * 6) + 1;
-        document.getElementById('dice-box').innerText = "🎲 " + r;
+        let r = Math.floor(Math.random()*6)+1;
+        document.getElementById('dice-box').innerText = "🎲 "+r;
         positions[myRole] += r;
-        if (positions[myRole] >= 100) {
+        if(positions[myRole] >= 100) {
             positions[myRole] = 100; finished[myRole] = true;
-            broadcast({ type: 'fin', idx: myRole, name: playerNames[myRole] });
-            updateUI(); return;
-        }
-        if (Math.random() < 0.35) trig(); else sync(`${playerNames[myRole]} advances`);
-    }
-
-    function trig() {
-        const ov = document.getElementById('overlay'); ov.style.display = "flex";
-        let isTrap = Math.random() < 0.6;
-        document.getElementById('res-img').src = (isTrap?'h':'f') + (Math.floor(Math.random()*5)+1) + ".jpg";
-        if (!isTrap) {
-            inventory.passes++; document.getElementById('res-text').innerText = "POWER CARD FOUND";
-            document.getElementById('event-actions').innerHTML = `<button onclick="cls('Blessed by Spirit')" style="padding:15px;background:green;color:white;width:100%;cursor:pointer;">COLLECT POWER</button>`;
+            broadcast({type:'fin', idx:myRole, name:playerNames[myRole]});
         } else {
-            document.getElementById('res-text').innerText = "TRAP: -10 STEPS";
-            let b = `<button onclick="tTrap()" style="padding:15px;background:#444;color:white;width:100%;cursor:pointer;">ACCEPT FATE</button>`;
-            if (inventory.passes > 0) {
-                for (let i=0; i<maxPlayers; i++) if(i !== myRole && !finished[i]) 
-                    b += `<button onclick="sab(${i})" style="margin-top:10px;padding:15px;background:#bc0000;color:white;width:100%;cursor:pointer;">CURSE ${playerNames[i].toUpperCase()}</button>`;
-            }
-            document.getElementById('event-actions').innerHTML = b;
+            if(Math.random() < 0.3) triggerEvent(); else sync(`${playerNames[myRole]} moved`);
         }
     }
 
-    function sab(t) { inventory.passes--; positions[t] = Math.max(1, positions[t]-10); document.getElementById('overlay').style.display="none"; broadcast({type:'sab', to:t, newPos:positions[t]}); sync(`Cursed ${playerNames[t]}`); }
-    function tTrap() { positions[myRole] = Math.max(1, positions[myRole]-10); document.getElementById('overlay').style.display="none"; sync(`Spirit weakened`); }
-    function cls(m) { document.getElementById('overlay').style.display="none"; sync(m); }
+    function triggerEvent() {
+        const ov = document.getElementById('overlay'); ov.style.display="flex";
+        let isTrap = Math.random() < 0.5;
+        document.getElementById('res-text').innerText = isTrap ? "TRAP: -10 STEPS" : "SAFE ZONE";
+        let b = `<button onclick="resolveEvent(${isTrap ? -10 : 0})" style="padding:15px;width:100%;background:red;color:white;">CONTINUE</button>`;
+        document.getElementById('event-actions').innerHTML = b;
+    }
+
+    function resolveEvent(val) {
+        positions[myRole] = Math.max(1, positions[myRole] + val);
+        document.getElementById('overlay').style.display="none";
+        sync(val < 0 ? "Hit a trap!" : "Escaped danger");
+    }
 
     function updateUI() {
-        const leg = document.getElementById('player-legend'); leg.innerHTML = "";
-        playerNames.slice(0, maxPlayers).forEach((n, i) => {
-            if (playerChars[i] !== -1) leg.innerHTML += `<div class="legend-item"><span>${CHARS[playerChars[i]].icon}</span> ${n}</div>`;
-        });
         const b = document.getElementById('roll-btn');
-        if (finished[myRole]) { b.disabled = true; b.innerText = "SPECTATING..."; b.className = "btn-wait"; }
+        if(finished[myRole]) { b.innerText = "SPECTATING"; b.disabled = true; b.className="btn-wait"; }
         else {
-            const act = (turn === myRole); b.disabled = !act;
-            b.innerText = act ? "RELEASE POWER" : `${playerNames[turn].toUpperCase()}'S TURN`;
-            b.className = act ? "btn-active" : "btn-wait";
+            let active = (turn === myRole);
+            b.disabled = !active; b.innerText = active ? "YOUR TURN" : `${playerNames[turn]}'s Turn`;
+            b.className = active ? "btn-active" : "btn-wait";
         }
         document.querySelectorAll('.player').forEach(p => p.remove());
-        positions.slice(0, maxPlayers).forEach((pos, i) => {
-            const cell = document.getElementById('cell-' + pos);
-            if (cell && playerChars[i] !== -1) {
-                const dot = document.createElement('div');
-                dot.className = `player ${CHARS[playerChars[i]].class} ${turn === i ? 'active-turn' : ''}`;
-                dot.innerText = CHARS[playerChars[i]].icon;
-                cell.appendChild(dot);
+        for(let i=0; i<maxPlayers; i++) {
+            let cell = document.getElementById('cell-'+positions[i]);
+            if(cell) {
+                let p = document.createElement('div'); p.className = `player ${CHARS[playerChars[i]].c} ${turn===i?'active-turn':''}`;
+                p.innerText = CHARS[playerChars[i]].i; cell.appendChild(p);
             }
-        });
+        }
     }
 
-    function showWin() {
-        document.getElementById('win-overlay').style.display = "flex";
-        document.getElementById('rankings').innerHTML = winnersList.map((n, i) => `<b>${i+1}.</b> ${n.toUpperCase()}`).join('<br>');
-        if (isHost) document.getElementById('host-restart-area').style.display = "block";
-        else document.getElementById('guest-restart-msg').style.display = "block";
-    }
-
-    function resetGame() { broadcast({ type: 'gr' }); }
-    function broadcast(d) { handleData(d); if (isHost) guestConns.forEach(c => c.send(d)); else hostConn.send(d); }
-    function sync(m) { nt(); broadcast({ type: 'sync', pos: positions, turn: turn, msg: m }); }
-    function nt() { let s = 0; do { turn = (turn + 1) % maxPlayers; s++; } while (finished[turn] && s < 10); }
-    function sendEmoji(e) { broadcast({ type: 'chat', sender: playerNames[myRole], text: e }); }
+    function broadcast(d) { handleData(d); if(isHost) guestConns.forEach(c => c.send(d)); else hostConn.send(d); }
+    function sync(m) { nextTurn(); broadcast({type:'sync', pos:positions, turn:turn, msg:m}); }
+    function nextTurn() { do { turn = (turn + 1) % maxPlayers; } while(finished[turn]); }
+    function sendEmoji(e) { broadcast({type:'chat', user:playerNames[myRole], emoji:e}); }
     function showFlash(d) {
-        const f = document.getElementById('emoji-flash');
-        document.getElementById('flash-content').innerText = d.text;
-        document.getElementById('flash-user').innerText = d.sender;
-        f.style.display = "flex"; setTimeout(() => f.style.display = "none", 1500);
+        const f = document.getElementById('emoji-flash'); document.getElementById('f-emoji').innerText = d.emoji;
+        document.getElementById('f-user').innerText = d.user; f.style.display="flex"; setTimeout(()=>f.style.display="none", 1200);
     }
-    function copyL() { const i = document.getElementById('lInp'); i.select(); navigator.clipboard.writeText(i.value); alert("Link Copied!"); }
+    function showWin() { document.getElementById('win-overlay').style.display='flex'; document.getElementById('rankings').innerText = winners.join(' > '); }
 
     const board = document.getElementById('game-container');
-    for (let i = 0; i < 100; i++) {
-        let row = Math.floor(i / 10), col = i % 10, num;
-        if (row % 2 === 0) num = 100 - (row * 10 + col); else num = 100 - (row * 10 + (9 - col));
-        let cell = document.createElement('div'); cell.className = 'cell'; cell.id = 'cell-' + num; cell.innerText = num; board.appendChild(cell);
+    for(let i=0; i<100; i++) {
+        let r = Math.floor(i/10), c = i%10, n = (r%2===0) ? 100-(r*10+c) : 100-(r*10+(9-c));
+        let div = document.createElement('div'); div.className='cell'; div.id='cell-'+n; div.innerText=n; board.appendChild(div);
     }
 </script>
 </body>
