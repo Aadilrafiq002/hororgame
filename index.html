@@ -369,7 +369,6 @@
     function closeOverlaySync(m) { document.getElementById('overlay').style.display="none"; sync(m); }
     function sendInit() { guestConns.forEach((c, i) => { if(c) c.send({ type: 'init', role: i+1, max: maxPlayers, pos: positions, turn: turn, fin: finished, names: playerNames }) }); document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
 </script>
-
 <script>
     function startBotMode() {
         const nameInput = document.getElementById('user-name').value.trim();
@@ -383,7 +382,7 @@
         playerNames[0] = nameInput;
         playerNames[1] = "HELL_BOT";
         
-        // Hide Auth
+        // Hide Auth & Peer Elements
         document.getElementById('auth-screen').style.display = 'none';
         document.getElementById('conn-status').style.display = 'none';
         
@@ -392,19 +391,23 @@
     }
 
     async function botLogicTurn() {
-        if (finished[1] || isMoving) return;
+        // Prevent bot from rolling if it's already moving or not its turn
+        if (finished[1] || isMoving || turn !== 1) return;
         
         isMoving = true;
         document.getElementById('ritual-log').innerText = "HELL_BOT is rolling...";
-        await new Promise(r => setTimeout(r, 1200));
+        await new Promise(r => setTimeout(r, 1500));
         
+        // 1. Roll Dice
         let roll = Math.floor(Math.random() * 6) + 1;
         document.getElementById('dice-box').innerText = "🎲 " + roll;
         playSound('dice');
         
+        // 2. Move
         let target = Math.min(100, positions[1] + roll);
         await animateMove(1, target);
 
+        // 3. Check Win
         if (positions[1] >= 100) {
             finished[1] = true;
             isMoving = false;
@@ -412,25 +415,54 @@
             return;
         }
 
-        // Bot Event Logic
-        let botRand = Math.random() * 100;
-        let botMsg = "Bot finished turn.";
+        // 4. Bot Event (Same images/logic as multiplayer)
+        let rand = Math.random() * 100;
+        let botActionMsg = "Bot moved.";
         
-        if (botRand < 15) { 
-            positions[1] = Math.max(1, positions[1] - 8);
-            botMsg = "BOT hit a trap!";
-        } else if (botRand < 30) {
-            positions[1] = Math.min(100, positions[1] + 5);
-            botMsg = "BOT was blessed!";
-        } else if (botRand < 38) {
-            positions[0] = Math.max(1, positions[0] - 5);
-            botMsg = "BOT sabotaged you!";
+        // Helper for random images
+        const getBotImg = (type) => type + (Math.floor(Math.random() * 5) + 1) + ".jpg";
+
+        // Show Overlay for Bot just like multiplayer
+        const overlay = document.getElementById('overlay');
+        const actions = document.getElementById('event-actions');
+        const resText = document.getElementById('res-text');
+        const resImg = document.getElementById('res-img');
+        
+        if (rand < 20) { // VOID
+            overlay.style.display = "flex";
+            resText.style.color = "#ff00ff";
+            resText.innerText = "BOT FALLS INTO THE VOID!";
+            resImg.src = getBotImg('h');
+            actions.innerHTML = `<p style="color:white;">Processing...</p>`;
+            await new Promise(r => setTimeout(r, 2000));
+            await animateMove(1, 1);
+            botActionMsg = "Bot banished to Void!";
+        } 
+        else if (rand < 40) { // TRAP
+            overlay.style.display = "flex";
+            resText.style.color = "red";
+            resText.innerText = "BOT HIT A TRAP: -10";
+            resImg.src = getBotImg('h');
+            actions.innerHTML = `<p style="color:white;">Processing...</p>`;
+            await new Promise(r => setTimeout(r, 2000));
+            await animateMove(1, Math.max(1, positions[1] - 10));
+            botActionMsg = "Bot hit a trap!";
+        }
+        else if (rand < 60) { // REWARD
+            overlay.style.display = "flex";
+            resText.style.color = "#00ff00";
+            resText.innerText = "BOT BLESSED: +5";
+            resImg.src = getBotImg('f');
+            actions.innerHTML = `<p style="color:white;">Processing...</p>`;
+            await new Promise(r => setTimeout(r, 2000));
+            await animateMove(1, Math.min(100, positions[1] + 5));
+            botActionMsg = "Bot was blessed!";
         }
 
-        updateUI();
-        await new Promise(r => setTimeout(r, 800));
+        // Close overlay and PASS TURN
+        overlay.style.display = "none";
         isMoving = false;
-        sync(botMsg);
+        sync(botActionMsg); // This switches turn back to you (turn 0)
     }
 </script>
 </body>
