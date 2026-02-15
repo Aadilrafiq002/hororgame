@@ -40,10 +40,6 @@
 
         #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9000; padding: 20px; }
         #emoji-flash { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9500; pointer-events: none; }
-        
-        /* Judgment Styles */
-        .winner-screen { color: gold; text-shadow: 0 0 20px gold; }
-        .loser-screen { color: #555; }
     </style>
 </head>
 <body>
@@ -102,10 +98,10 @@
     const sounds = { dice: new Audio('dice.mp3'), jump: new Audio('jump.mp3'), noob: new Audio('noob.mp3') };
     function playSound(n) { const s = sounds[n].cloneNode(); s.play().catch(()=>{}); }
 
-    const winJokes = ["You won? Even the dice feel sorry for you.", "Congrats on being the best at clicking a button.", "The King of nothing!", "You're a winner! (Still a noob in real life though)."];
-    const loseJokes = ["You lost to THAT person? Embarrassing.", "Is your finger broken or just your luck?", "Even a turtle reached the finish line before you.", "Watching you play is the real trap."];
+    const winJokes = ["You won? Even the dice feel sorry for you.", "Congrats on being the fastest soul in hell.", "You cheated, didn't you?", "The Gatekeeper is impressed. Slightly."];
+    const loseJokes = ["Imagine losing to this guy.", "Better luck in the next life.", "You're a disgrace to the void.", "Even a snail is faster than you."];
 
-    // Build Board
+    // Board Generation
     const board = document.getElementById('game-container');
     const cells = [];
     for (let i = 0; i < 100; i++) {
@@ -129,6 +125,7 @@
         const rID = window.location.hash.substring(1);
         if(!name) return;
         localStorage.setItem('gate_username', name);
+
         if (name.toLowerCase() === ADMIN_USER && pass === ADMIN_PASS) {
             isHost = true; document.getElementById('auth-screen').style.display = 'none'; showHostUI();
         } else if (rID) {
@@ -161,7 +158,8 @@
                     if(existingIdx !== -1 && existingIdx < maxPlayers) {
                         guestConns[existingIdx - 1] = c; sendInit();
                     } else if (guestConns.length < maxPlayers - 1) {
-                        guestConns.push(c); playerNames[guestConns.length] = d.name;
+                        guestConns.push(c);
+                        playerNames[guestConns.length] = d.name;
                         if(guestConns.length === maxPlayers-1) sendInit();
                     }
                 }
@@ -201,7 +199,7 @@
         const actions = document.getElementById('event-actions');
         overlay.style.display = "flex";
         let isTrap = Math.random() < 0.60;
-        document.getElementById('res-img').src = "https://api.dicebear.com/7.x/bottts/svg?seed=" + Math.random(); 
+        document.getElementById('res-img').src = (isTrap ? 'h' : 'f') + (Math.floor(Math.random()*5)+1) + ".jpg";
 
         if (!isTrap) {
             inventory.passes++;
@@ -231,29 +229,30 @@
     function takeTrap() { positions[myRole] = Math.max(1, positions[myRole]-10); document.getElementById('overlay').style.display = "none"; sync(`Caught in flames!`); }
 
     function handleJudgment(winnerIdx) {
-        const overlay = document.getElementById('overlay');
-        const text = document.getElementById('res-text');
-        const actions = document.getElementById('event-actions');
-        overlay.style.display = "flex";
-        
-        if (myRole === winnerIdx) {
-            text.innerHTML = `<span class="winner-screen">🏆 CONGRATULATIONS! 🏆<br>${winJokes[Math.floor(Math.random()*winJokes.length)]}</span>`;
-        } else {
-            text.innerHTML = `<span class="loser-screen">💀 YOU ARE A LOSER 💀<br>${playerNames[winnerIdx]} WON!<br>${loseJokes[Math.floor(Math.random()*loseJokes.length)]}</span>`;
-        }
-        actions.innerHTML = `<button onclick="document.getElementById('overlay').style.display='none'" style="width:100%; padding:10px; background:#222; color:white;">SPECTATE</button>`;
-        
-        // Host gets the restart option in the UI
-        if(isHost) {
-            document.getElementById('host-controls').innerHTML = `<button onclick="restartGame()" style="background:gold; color:black; width:100%; padding:15px; margin-top:10px; font-weight:bold; border:none; border-radius:5px;">RESTART SAME PLAYERS</button>`;
-        }
+        setTimeout(() => {
+            const overlay = document.getElementById('overlay');
+            const text = document.getElementById('res-text');
+            const actions = document.getElementById('event-actions');
+            document.getElementById('res-img').src = "https://img.icons8.com/emoji/96/000000/trophy-emoji.png";
+            overlay.style.display = "flex";
+            
+            if (myRole === winnerIdx) {
+                text.innerHTML = `<span style="color:gold;">🏆 CONGRATULATIONS! 🏆</span><br><br>${winJokes[Math.floor(Math.random()*winJokes.length)]}`;
+            } else {
+                text.innerHTML = `<span style="color:red;">💀 LOSER 💀</span><br><br>${playerNames[winnerIdx]} WON!<br>${loseJokes[Math.floor(Math.random()*loseJokes.length)]}`;
+            }
+            actions.innerHTML = `<button onclick="document.getElementById('overlay').style.display='none'" style="width:100%; padding:10px; background:#222; color:white;">CONTINUE WATCHING</button>`;
+            
+            if(isHost) {
+                document.getElementById('host-controls').innerHTML = `<button onclick="restartGame()" style="background:gold; color:black; width:100%; padding:15px; margin-top:10px; font-weight:bold;">RESTART GAME</button>`;
+            }
+        }, 2000);
     }
 
     function restartGame() {
         positions = [1,1,1,1]; turn = 0; finished = [false, false, false, false];
         document.getElementById('host-controls').innerHTML = "";
-        const d = { type: 'restart' };
-        broadcast(d);
+        broadcast({ type: 'restart' });
     }
 
     function handleData(d) {
@@ -268,26 +267,25 @@
         if (d.type === 'sync') { positions = d.pos; turn = d.turn; document.getElementById('ritual-log').innerText = d.msg; updateUI(); }
         if (d.type === 'init') { myRole = d.role; maxPlayers = d.max; positions = d.pos; turn = d.turn; finished = d.fin; playerNames = d.names; document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
         if (d.type === 'finish') { finished[d.winner] = true; updateUI(); handleJudgment(d.winner); }
-        if (d.type === 'restart') { positions = [1,1,1,1]; turn = 0; finished = [false, false, false, false]; inventory.passes = 0; document.getElementById('overlay').style.display='none'; updateUI(); }
+        if (d.type === 'restart') { positions = [1,1,1,1]; turn = 0; finished = [false, false, false, false]; document.getElementById('overlay').style.display='none'; updateUI(); }
     }
 
     function broadcast(d) { handleData(d); guestConns.forEach(c => { if(c) c.send(d); }); }
     function sync(msg) { nextTurn(); const d = { type: 'sync', pos: positions, turn: turn, msg: msg, fin: finished }; if (isHost) broadcast(d); else hostConn.send(d); updateUI(); }
     
     function nextTurn() { 
-        let playersLeft = finished.slice(0, maxPlayers).filter(f => !f).length;
-        if(playersLeft === 0) return;
-        let s = 0; 
-        do { turn = (turn + 1) % maxPlayers; s++; } while (finished[turn] && s < 10); 
+        let remaining = finished.slice(0, maxPlayers).filter(f => !f).length;
+        if(remaining === 0) return;
+        let s = 0; do { turn = (turn + 1) % maxPlayers; s++; } while (finished[turn] && s < 10); 
     }
 
     function updateUI() {
         const active = (turn === myRole && !finished[myRole]);
-        const rBtn = document.getElementById('roll-btn');
-        rBtn.disabled = !active;
-        if(finished[myRole]) rBtn.innerText = "SPECTATING...";
-        else rBtn.innerText = active ? "RELEASE POWER" : playerNames[turn].toUpperCase() + "'S TURN";
-        rBtn.className = active ? "btn-active" : "btn-wait";
+        const btn = document.getElementById('roll-btn');
+        btn.disabled = !active;
+        if(finished[myRole]) btn.innerText = "WAITING FOR OTHERS...";
+        else btn.innerText = active ? "ROLL" : playerNames[turn].toUpperCase() + "'S TURN";
+        btn.className = active ? "btn-active" : "btn-wait";
         document.getElementById('inv-display').innerText = `CARDS: ${inventory.passes}`;
         
         const sBar = document.getElementById('soul-bar');
