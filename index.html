@@ -3,17 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>100 GATES: UI FIX</title>
+    <title>100 GATES: TOURNAMENT</title>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
     <style>
         :root { --bg: #050505; --accent: #bc0000; --panel: #1a1a1a; }
         body { background: var(--bg); color: #cfcfcf; font-family: 'Courier New', monospace; margin: 0; text-align: center; overflow-x: hidden; touch-action: manipulation; }
         
-        /* Auth */
         #auth-screen { position: fixed; inset: 0; background: #000; z-index: 9999; display: flex; flex-direction: column; justify-content: center; align-items: center; }
         #auth-screen input { padding: 12px; margin: 5px; width: 80%; max-width: 300px; background: #111; border: 1px solid #444; color: white; border-radius: 5px; }
 
-        /* Board */
         #game-container { display: grid; grid-template-columns: repeat(10, 1fr); width: 95vw; max-width: 400px; aspect-ratio: 1/1; margin: 5px auto; border: 5px solid #333; background: #222; }
         .cell { border: 0.1px solid #222; display: flex; align-items: center; justify-content: center; font-size: 10px; position: relative; background: #121212; }
         .player { width: 18px; height: 18px; border-radius: 50%; position: absolute; border: 2px solid #000; transition: 0.5s; z-index: 10; }
@@ -21,90 +19,58 @@
         
         #ritual-log { background: #000; color: #888; padding: 8px; font-size: 12px; height: 35px; border-bottom: 2px solid var(--accent); display: flex; align-items: center; justify-content: center; }
 
-        /* JUMPSCARE OVERLAY FIX */
-        #overlay { 
-            position: fixed; inset: 0; 
-            background: rgba(0,0,0,0.98); 
-            display: none; flex-direction: column; 
-            justify-content: center; align-items: center; 
-            z-index: 9000; /* Higher than everything else */
-            padding: 20px;
-        }
-        .event-card { 
-            width: 95%; max-width: 380px; 
-            max-height: 95vh; 
-            overflow-y: auto; 
-            text-align: center; 
-            background: #000; 
-            border: 2px solid var(--accent); 
-            padding: 15px;
-            border-radius: 10px;
-        }
-        #res-img { 
-            width: 100%; 
-            max-height: 35vh; /* STRICT HEIGHT LIMIT: Image cannot cover more than 35% of the screen */
-            object-fit: contain; 
-            border-radius: 5px; 
-            margin-bottom: 15px; 
-            display: block;
-            margin-left: auto;
-            margin-right: auto;
-        }
+        /* Jumpscare Overlay */
+        #overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.98); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9000; padding: 20px; }
+        .event-card { width: 95%; max-width: 380px; max-height: 90vh; overflow-y: auto; text-align: center; background: #000; border: 2px solid var(--accent); padding: 15px; border-radius: 10px; }
+        #res-img { width: 100%; max-height: 35vh; object-fit: contain; margin-bottom: 15px; }
         
+        /* THE END SCREEN */
+        #win-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 9500; display: none; flex-direction: column; justify-content: center; align-items: center; }
+        .win-box { background: #111; border: 2px solid gold; padding: 30px; border-radius: 15px; width: 80%; max-width: 300px; }
+
         .panel { background: var(--panel); padding: 10px; border-radius: 10px; width: 90%; max-width: 400px; border: 1px solid var(--accent); margin: 5px auto; }
         #roll-btn { padding: 15px; width: 100%; border-radius: 5px; font-size: 18px; font-weight: bold; cursor: pointer; border: none; }
         .btn-active { background: #008000; color: white; }
         .btn-wait { background: #222; color: #555; }
-        
-        /* EMOJI KEYBOARD FIX */
-        #chat-window { 
-            position: fixed; 
-            bottom: 0; left: 0; right: 0;
-            background: #111; 
-            z-index: 8000; /* Forced to the front layer */
-            border-top: 3px solid var(--accent);
-            padding-bottom: env(safe-area-inset-bottom);
-        }
-        .emoji-grid { 
-            display: grid; 
-            grid-template-columns: repeat(5, 1fr); 
-            max-width: 500px;
-            margin: 0 auto;
-            padding: 10px; 
-            gap: 8px; 
-        }
-        .emoji-grid button { 
-            font-size: 28px; 
-            padding: 12px; 
-            background: #222; 
-            border: 1px solid #444; 
-            color: white; 
-            border-radius: 8px;
-            cursor: pointer;
-            touch-action: manipulation;
-        }
+        .btn-finished { background: #444; color: gold; }
+
+        #chat-window { position: fixed; bottom: 0; left: 0; right: 0; background: #111; z-index: 8000; border-top: 3px solid var(--accent); padding-bottom: env(safe-area-inset-bottom); }
+        .emoji-grid { display: grid; grid-template-columns: repeat(5, 1fr); max-width: 500px; margin: 0 auto; padding: 10px; gap: 8px; }
+        .emoji-grid button { font-size: 28px; padding: 12px; background: #222; border: 1px solid #444; color: white; border-radius: 8px; }
 
         #emoji-flash { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 9500; pointer-events: none; }
-        #flash-content { font-size: 100px; }
     </style>
 </head>
 <body>
 
     <div id="auth-screen">
-        <h1 style="color:var(--accent); font-size: 40px;">100 GATES</h1>
+        <h1 style="color:var(--accent); font-size: 40px; margin:0;">100 GATES</h1>
+        <p style="color:#444;">TOURNAMENT MODE</p>
         <input type="text" id="user-name" placeholder="Name">
-        <input type="password" id="admin-pass" placeholder="Admin Key">
-        <button onclick="handleAuth()" style="width:80%; padding:15px; background:var(--accent); color:white; border:none; font-weight:bold;">PLAY</button>
+        <input type="password" id="admin-pass" placeholder="Host Key">
+        <button onclick="handleAuth()" style="width:80%; padding:15px; background:var(--accent); color:white; border:none; font-weight:bold;">ENTER</button>
     </div>
 
-    <div id="emoji-flash"><p id="flash-content"></p><p id="flash-user" style="color:red; font-size: 20px;"></p></div>
+    <div id="win-overlay">
+        <div class="win-box">
+            <h1 style="color:gold; margin:0;">GAME OVER</h1>
+            <p id="rankings" style="color:white; font-size: 14px; margin: 20px 0;"></p>
+            
+            <div id="host-restart-area" style="display:none;">
+                <button onclick="resetGame()" style="width:100%; padding:15px; background:red; color:white; border:none; font-weight:bold; cursor:pointer;">RESTART REALM</button>
+            </div>
+            <p id="guest-restart-msg" style="color:#888; display:none; font-size: 12px;">Waiting for Master Aadil to restart...</p>
+        </div>
+    </div>
+
+    <div id="emoji-flash"><p id="flash-content" style="font-size:100px;"></p><p id="flash-user" style="color:red; font-size: 20px;"></p></div>
 
     <div id="setup-screen" style="position:fixed; inset:0; background:#000; z-index:8500; display:none; flex-direction:column; justify-content:center; align-items:center;">
         <div id="ui-box" class="panel"></div>
     </div>
 
-    <div id="ritual-log">Connecting...</div>
-    <div id="inv-display" style="color:gold; font-weight:bold; margin-top:5px;">CARDS: 0</div>
+    <div id="ritual-log">Summoning...</div>
+    <div id="inv-display" style="color:gold; font-weight:bold; margin-top:5px;">SABOTAGE: 0</div>
     <div id="game-container"></div>
 
     <div class="panel" style="margin-bottom: 160px;">
@@ -137,6 +103,7 @@
     let peer, hostConn, guestConns = [];
     let myRole = -1, isHost = false, turn = 0, positions = [1,1,1,1], maxPlayers = 2;
     let personalRolls = 0, inventory = { passes: 0 }, finished = [false, false, false, false];
+    let winnersList = [];
     let playerNames = ["P1", "P2", "P3", "P4"];
 
     const sounds = { dice: new Audio('dice.mp3'), jump: new Audio('jump.mp3'), noob: new Audio('noob.mp3') };
@@ -154,16 +121,16 @@
         } else if (rID) {
             isHost = false; document.getElementById('auth-screen').style.display = 'none'; startAsGuest(rID, name);
         } else {
-            alert("Check credentials!");
+            alert("Host access denied or missing link.");
         }
     }
 
     function showHostUI() {
         document.getElementById('setup-screen').style.display = 'flex';
         document.getElementById('ui-box').innerHTML = `
-            <p>Host Lobby</p>
+            <p>Master Lobby</p>
             <select id="p-count" style="width:100%; padding:15px; background:#000; color:white;"><option value="2">2 Players</option><option value="3">3 Players</option><option value="4">4 Players</option></select>
-            <button onclick="startAsHost()" style="background:red; color:white; width:100%; margin-top:15px; padding:15px; border:none; font-weight:bold;">ACTIVATE</button>`;
+            <button onclick="startAsHost()" style="background:red; color:white; width:100%; margin-top:15px; padding:15px; border:none; font-weight:bold;">OPEN GATES</button>`;
     }
 
     function startAsHost() {
@@ -173,13 +140,14 @@
         peer.on('open', id => { 
             myRole = 0; 
             const link = window.location.origin + window.location.pathname + '#' + id;
-            document.getElementById('ui-box').innerHTML = `<p>LINK:</p><input type="text" value="${link}" id="lInp" readonly style="width:100%; padding:8px; background:#000; color:white;"><button onclick="copyL()" style="width:100%; margin-top:10px;">COPY</button>`;
+            document.getElementById('ui-box').innerHTML = `<p>SHARE LINK:</p><input type="text" value="${link}" id="lInp" readonly style="width:100%; padding:8px; background:#000; color:white;"><button onclick="copyL()" style="width:100%; margin-top:10px;">COPY</button><p id="wait-count">Waiting (0/${maxPlayers-1})</p>`;
         });
         peer.on('connection', c => {
             c.on('data', d => {
                 if(d.type === 'join_request') {
                     guestConns.push(c);
                     playerNames[guestConns.length] = d.name;
+                    document.getElementById('wait-count').innerText = `Waiting (${guestConns.length}/${maxPlayers-1})...`;
                     if(guestConns.length === maxPlayers-1) sendInit();
                 }
                 handleData(d);
@@ -196,6 +164,19 @@
         }); 
     }
 
+    function resetGame() {
+        if (!isHost) return;
+        positions = [1,1,1,1];
+        finished = [false, false, false, false];
+        winnersList = [];
+        turn = 0;
+        inventory.passes = 0;
+        const d = { type: 'global_reset', pos: positions, turn: turn, fin: finished };
+        broadcast(d);
+        document.getElementById('win-overlay').style.display = "none";
+        updateUI();
+    }
+
     function playTurn() {
         if(finished[myRole]) return;
         playSound('dice');
@@ -205,9 +186,11 @@
         personalRolls++;
 
         if (positions[myRole] >= 100) { 
-            positions[myRole] = 100; finished[myRole] = true; updateUI();
-            const d = { type: 'finish', winner: myRole };
+            positions[myRole] = 100; 
+            finished[myRole] = true;
+            const d = { type: 'finish_player', playerIdx: myRole, name: playerNames[myRole] };
             if (isHost) broadcast(d); else hostConn.send(d);
+            updateUI();
             return; 
         }
 
@@ -224,23 +207,20 @@
 
         if (!isTrap) {
             inventory.passes++;
-            document.getElementById('res-text').style.color = "gold";
-            document.getElementById('res-text').innerText = "SABOTAGE CARD!";
+            document.getElementById('res-text').style.color = "gold"; document.getElementById('res-text').innerText = "CARD ACQUIRED!";
             actions.innerHTML = `<button onclick="closeOverlaySync('Got a card')" style="width:100%; padding:18px; background:green; color:white; font-weight:bold; border:none; border-radius:10px;">COLLECT</button>`;
         } else {
             playSound('jump');
             if (isVoid) {
-                document.getElementById('res-text').style.color = "red";
-                document.getElementById('res-text').innerText = "THE VOID!";
-                let btns = `<button onclick="takeVoid()" style="width:100%; padding:18px; background:red; color:white; border:none; border-radius:10px; font-weight:bold;">ACCEPT DEFEAT</button>`;
+                document.getElementById('res-text').style.color = "red"; document.getElementById('res-text').innerText = "VOID!";
+                let btns = `<button onclick="takeVoid()" style="width:100%; padding:18px; background:red; color:white; border:none; border-radius:10px;">ACCEPT</button>`;
                 if (inventory.passes > 0) {
                     for (let i=0; i<maxPlayers; i++) if(i !== myRole && !finished[i]) btns += `<button onclick="useSabotage(${i}, true)" style="background:black; color:red; margin-top:10px; padding:15px; width:100%; border:2px solid red; border-radius:10px; font-weight:bold;">VOID ${playerNames[i].toUpperCase()}</button>`;
                 }
                 actions.innerHTML = btns;
             } else {
-                document.getElementById('res-text').style.color = "white";
-                document.getElementById('res-text').innerText = "TRAP: -10";
-                let btns = `<button onclick="takeTrap()" style="width:100%; padding:18px; background:#444; color:white; border:none; border-radius:10px; font-weight:bold;">ACCEPT</button>`;
+                document.getElementById('res-text').style.color = "white"; document.getElementById('res-text').innerText = "TRAP: -10";
+                let btns = `<button onclick="takeTrap()" style="width:100%; padding:18px; background:#444; color:white; border:none; border-radius:10px;">ACCEPT</button>`;
                 if (inventory.passes > 0) {
                     for (let i=0; i<maxPlayers; i++) if(i !== myRole && !finished[i]) btns += `<button onclick="useSabotage(${i}, false)" style="background:purple; color:white; margin-top:10px; padding:15px; width:100%; border:none; border-radius:10px; font-weight:bold;">TRAP ${playerNames[i].toUpperCase()}</button>`;
                 }
@@ -264,6 +244,13 @@
 
     function handleData(d) {
         if (isHost) guestConns.forEach(c => { if(c.peer !== d.fromPeer) c.send(d); });
+        
+        if (d.type === 'global_reset') {
+            positions = d.pos; turn = d.turn; finished = d.fin; winnersList = [];
+            document.getElementById('win-overlay').style.display = "none";
+            document.getElementById('ritual-log').innerText = "NEW ROUND STARTED!";
+            inventory.passes = 0; updateUI();
+        }
         if (d.type === 'chat') {
             const f = document.getElementById('emoji-flash');
             document.getElementById('flash-content').innerText = d.text;
@@ -278,19 +265,65 @@
         }
         if (d.type === 'sync') { positions = d.pos; turn = d.turn; document.getElementById('ritual-log').innerText = d.msg; updateUI(); }
         if (d.type === 'init') { myRole = d.role; maxPlayers = d.max; positions = d.pos; turn = d.turn; finished = d.fin; playerNames = d.names; document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
-        if (d.type === 'finish') { finished[d.winner] = true; updateUI(); alert(playerNames[d.winner] + " WON!"); }
+        
+        if (d.type === 'finish_player') {
+            if (!winnersList.includes(d.name)) winnersList.push(d.name);
+            finished[d.playerIdx] = true;
+            checkTournamentEnd();
+            updateUI();
+        }
+    }
+
+    function checkTournamentEnd() {
+        let activeCount = 0;
+        for(let i=0; i<maxPlayers; i++) if(!finished[i]) activeCount++;
+        
+        // If only 1 player left, game is over
+        if (activeCount <= 1) {
+            // Find the last loser and add them to the bottom of the list
+            for(let i=0; i<maxPlayers; i++) {
+                if(!finished[i] && !winnersList.includes(playerNames[i])) winnersList.push(playerNames[i]);
+            }
+            showTournamentEnd();
+        }
+    }
+
+    function showTournamentEnd() {
+        const overlay = document.getElementById('win-overlay');
+        const rankText = document.getElementById('rankings');
+        overlay.style.display = "flex";
+        rankText.innerHTML = winnersList.map((name, i) => `${i+1}. ${name.toUpperCase()}`).join('<br>');
+        
+        if (isHost) {
+            document.getElementById('host-restart-area').style.display = "block";
+            document.getElementById('guest-restart-msg').style.display = "none";
+        } else {
+            document.getElementById('host-restart-area').style.display = "none";
+            document.getElementById('guest-restart-msg').style.display = "block";
+        }
     }
 
     function broadcast(d) { handleData(d); guestConns.forEach(c => c.send(d)); }
     function sync(msg) { nextTurn(); const d = { type: 'sync', pos: positions, turn: turn, msg: msg, fin: finished }; if (isHost) broadcast(d); else hostConn.send(d); updateUI(); }
-    function nextTurn() { let s = 0; do { turn = (turn + 1) % maxPlayers; s++; } while (finished[turn] && s < 10); }
+    function nextTurn() { 
+        let s = 0; 
+        do { turn = (turn + 1) % maxPlayers; s++; } while (finished[turn] && s < 10); 
+    }
 
     function updateUI() {
-        const active = (turn === myRole && !finished[myRole]);
-        document.getElementById('roll-btn').disabled = !active;
-        document.getElementById('roll-btn').innerText = active ? "ROLL DICE" : playerNames[turn].toUpperCase() + "'S TURN";
-        document.getElementById('roll-btn').className = active ? "btn-active" : "btn-wait";
-        document.getElementById('inv-display').innerText = `CARDS: ${inventory.passes}`;
+        const btn = document.getElementById('roll-btn');
+        if (finished[myRole]) {
+            btn.disabled = true;
+            btn.innerText = "SPECTATING...";
+            btn.className = "btn-finished";
+        } else {
+            const active = (turn === myRole);
+            btn.disabled = !active;
+            btn.innerText = active ? "ROLL DICE" : playerNames[turn].toUpperCase() + "'S TURN";
+            btn.className = active ? "btn-active" : "btn-wait";
+        }
+        
+        document.getElementById('inv-display').innerText = `SABOTAGE: ${inventory.passes}`;
         document.querySelectorAll('.player').forEach(p => p.remove());
         positions.slice(0, maxPlayers).forEach((pos, i) => {
             const cell = document.getElementById('cell-' + pos);
@@ -303,7 +336,7 @@
     }
 
     function sendEmoji(e) { const m = { type: 'chat', sender: playerNames[myRole], text: e, fromPeer: peer.id }; if (isHost) broadcast(m); else hostConn.send(m); }
-    function copyL() { const i = document.getElementById('lInp'); i.select(); navigator.clipboard.writeText(i.value); alert("Copied!"); }
+    function copyL() { const i = document.getElementById('lInp'); i.select(); navigator.clipboard.writeText(i.value); alert("Link Copied!"); }
     function closeOverlaySync(m) { document.getElementById('overlay').style.display="none"; sync(m); }
     function sendInit() { guestConns.forEach((c, i) => c.send({ type: 'init', role: i+1, max: maxPlayers, pos: positions, turn: turn, fin: finished, names: playerNames })); document.getElementById('setup-screen').style.display = 'none'; updateUI(); }
 
