@@ -148,20 +148,6 @@
     }
     flickerFire();
 
-    // function handleAuth() {
-    //     const name = document.getElementById('user-name').value.trim();
-    //     const pass = document.getElementById('admin-pass').value.trim();
-    //     const rID = window.location.hash.substring(1);
-    //     const bgm = document.getElementById('bg-music');
-    //     if(bgm) { bgm.volume = 0.4; bgm.play().catch(()=>{}); }
-    //     if(!name) return;
-    //     localStorage.setItem('gate_username', name);
-    //     if (name.toLowerCase() === ADMIN_USER && pass === ADMIN_PASS) {
-    //         isHost = true; document.getElementById('auth-screen').style.display = 'none'; showHostUI(); 
-    //     } else if (rID) {
-    //         isHost = false; document.getElementById('auth-screen').style.display = 'none'; startAsGuest(rID, name); 
-    //     } else { alert("No Lobby ID!"); }
-    // }
     function handleAuth() {
         const name = document.getElementById('user-name').value.trim();
         const rID = window.location.hash.substring(1); // Check for Lobby ID in URL
@@ -292,6 +278,17 @@
         }
     });
 
+    // function startAsGuest(id, myName) { 
+    //     peer = new Peer(); 
+    //     peer.on('open', () => { 
+    //         document.getElementById('conn-status').className = 'online';
+    //         hostConn = peer.connect(id, {reliable: true}); 
+    //         hostConn.on('open', () => { hostConn.send({ type: 'join_request', name: myName }); });
+    //         hostConn.on('data', d => handleData(d)); 
+    //         hostConn.on('close', () => { alert("Host Lost!"); location.reload(); });
+    //     }); 
+    // }
+
     function startAsGuest(id, myName) { 
         peer = new Peer(); 
         peer.on('open', () => { 
@@ -299,8 +296,32 @@
             hostConn = peer.connect(id, {reliable: true}); 
             hostConn.on('open', () => { hostConn.send({ type: 'join_request', name: myName }); });
             hostConn.on('data', d => handleData(d)); 
-            hostConn.on('close', () => { alert("Host Lost!"); location.reload(); });
+            
+            // This detects when the Host closes the tab or loses internet
+            hostConn.on('close', () => { 
+                handleHostDeparture();
+            });
         }); 
+    }
+
+    function handleHostDeparture() {
+        // If the player is already on the winner/loser screen, don't interrupt
+        if (document.getElementById('overlay').style.display === "flex") return;
+
+        const overlay = document.getElementById('overlay');
+        const text = document.getElementById('res-text');
+        const img = document.getElementById('res-img');
+        
+        overlay.style.display = "flex";
+        img.src = "https://img.icons8.com/emoji/96/000000/broken-heart.png";
+        text.innerHTML = `<span style="color:red;">GATE KEEPER DISCONNECTED</span><br>
+                          <small>The host has left the void. The ritual is broken.</small>`;
+        
+        document.getElementById('event-actions').innerHTML = `
+            <button onclick="location.href=window.location.origin + window.location.pathname" 
+            style="background:red; color:white; padding:12px; width:100%; border:none; font-weight:bold;">
+            BACK TO MAIN MENU
+            </button>`;
     }
 
     async function animateMove(playerIdx, targetPos) {
