@@ -141,14 +141,7 @@
 
     function showHostUI() {
         document.getElementById('setup-screen').style.display = 'flex';
-        document.getElementById('ui-box').innerHTML = `
-            <p style="color:red; font-weight:bold;">GATE KEEPER</p>
-            <select id="p-count" style="width:100%; padding:15px; background:#000; color:white;">
-                <option value="2">2 Players</option>
-                <option value="3">3 Players</option>
-                <option value="4">4 Players</option>
-            </select>
-            <button onclick="startAsHost()" style="background:red; color:white; width:100%; margin-top:15px; padding:15px; border:none; font-weight:bold;">ACTIVATE GATE</button>`;
+        document.getElementById('ui-box').innerHTML = `<p style="color:red; font-weight:bold;">GATE KEEPER</p><select id="p-count" style="width:100%; padding:15px; background:#000; color:white;"><option value="2">2 Players</option><option value="3">3 Players</option><option value="4">4 Players</option></select><button onclick="startAsHost()" style="background:red; color:white; width:100%; margin-top:15px; padding:15px; border:none; font-weight:bold;">ACTIVATE GATE</button>`;
     }
 
     function startAsHost() {
@@ -158,25 +151,14 @@
         peer.on('open', id => { 
             myRole = 0; 
             const link = window.location.origin + window.location.pathname + '#' + id;
-            document.getElementById('ui-box').innerHTML = `
-                <p>SHARE LINK:</p>
-                <input type="text" value="${link}" id="lInp" readonly style="width:100%; padding:8px; background:#000; color:white;">
-                <button onclick="copyL()" style="width:100%; margin-top:10px; padding:10px;">COPY LINK</button>
-                <button onclick="sendInit()" style="background:green; color:white; width:100%; margin-top:15px; padding:15px; border:none; font-weight:bold;">START GAME NOW</button>
-                <p style="font-size:10px; color:#888; margin-top:10px;">Waiting for souls to join...</p>`;
+            document.getElementById('ui-box').innerHTML = `<p>SHARE LINK:</p><input type="text" value="${link}" id="lInp" readonly style="width:100%; padding:8px; background:#000; color:white;"><button onclick="copyL()" style="width:100%; margin-top:10px;">COPY</button><button onclick="sendInit()" style="background:green; color:white; width:100%; margin-top:15px; padding:10px; border:none; font-weight:bold;">FORCE START</button>`;
         });
         peer.on('connection', c => {
             c.on('data', d => {
                 if(d.type === 'join_request') {
                     let existingIdx = playerNames.indexOf(d.name);
-                    if(existingIdx !== -1 && existingIdx < maxPlayers) { 
-                        guestConns[existingIdx - 1] = c; 
-                        sendInit(); 
-                    } else if (guestConns.length < maxPlayers - 1) { 
-                        guestConns.push(c); 
-                        playerNames[guestConns.length] = d.name; 
-                        if(guestConns.length === maxPlayers-1) sendInit(); 
-                    }
+                    if(existingIdx !== -1 && existingIdx < maxPlayers) { guestConns[existingIdx - 1] = c; sendInit(); }
+                    else if (guestConns.length < maxPlayers - 1) { guestConns.push(c); playerNames[guestConns.length] = d.name; if(guestConns.length === maxPlayers-1) sendInit(); }
                 }
                 handleData(d);
             });
@@ -200,7 +182,7 @@
             current += step;
             positions[playerIdx] = current;
             updateUI();
-            await new Promise(r => setTimeout(r, 150)); 
+            await new Promise(r => setTimeout(r, 200)); 
         }
         isMoving = false;
         updateUI();
